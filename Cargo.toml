@@ -1,0 +1,34 @@
+[package]
+name = "rmcp-actix-web"
+version = "0.1.0"
+edition = "2024"
+description = "actix-web transport implementations for RMCP (Rust Model Context Protocol)"
+license = "MIT"
+repository = "https://gitlab.com/lx-industries/rmcp-actix-web"
+homepage = "https://gitlab.com/lx-industries/rmcp-actix-web"
+readme = "README.md"
+keywords = ["mcp", "model-context-protocol", "actix-web", "transport"]
+categories = ["network-programming", "web-programming"]
+
+[dependencies]
+rmcp = { git = "https://github.com/modelcontextprotocol/rust-sdk", features = ["server", "transport-sse-server", "transport-streamable-http-server"] }
+actix-web = "4"
+actix-rt = "2"
+async-stream = "0.3"
+tokio = { version = "1", features = ["sync", "macros", "rt", "time", "process"] }
+futures = "0.3"
+tracing = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio-util = "0.7"
+sse-stream = "0.2"
+bytes = "1"
+tokio-stream = "0.1"
+http = "1"
+
+[dev-dependencies]
+rmcp = { git = "https://github.com/modelcontextprotocol/rust-sdk", features = ["server", "transport-sse-server", "transport-streamable-http-server"] }
+anyhow = "1"
+reqwest = { version = "0.12", features = ["json", "stream"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+chrono = "0.4"
