@@ -1,0 +1,198 @@
+# GitLab CI configuration for rmcp-actix-web
+# Uses official Rust 1.88.0 image with SHA256 pinning for reproducible builds
+
+image: rust:1.88.0@sha256:95f6d6956bf8abd7461763ba7ccd243d8964a41c8eb3f41d895490c782628d7c
+
+# Workflow rules for automatic pipeline cancellation
+workflow:
+  auto_cancel:
+    on_new_commit: interruptible
+    on_job_failure: none
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG
+
+# Cache configuration patterns for optimal build performance
+.override-cargo-home: &override-cargo-home
+  # Assume the PWD is CI_PROJECT_DIR, this way we don't have to deal with
+  # Windows (`\`) vs Linux (`/`) path separators.
+  CARGO_HOME: ".cargo"
+
+.cargo-registry-cache: &cargo-registry-cache
+  key: $CI_COMMIT_REF_SLUG
+  paths:
+    # https://doc.rust-lang.org/cargo/guide/cargo-home.html?highlight=CI%20cache#caching-the-cargo-home-in-ci
+    - ".cargo/.crates.toml"
+    - ".cargo/.crates2.json"
+    - ".cargo/bin/"
+    - ".cargo/registry/index/"
+    - ".cargo/registry/cache/"
+    - ".cargo/registry/src/"
+    - ".cargo/git/db/"
+  policy: pull
+
+.cargo-build-cache: &cargo-build-cache
+  key: $CI_COMMIT_REF_SLUG-$CI_JOB_NAME_SLUG
+  paths:
+    # https://doc.rust-lang.org/cargo/guide/build-cache.html
+    - "target"
+  policy: pull-push
+
+# Common configuration for all jobs
+.rust-job-template: &rust-job-template
+  variables:
+    <<: *override-cargo-home
+  before_script:
+    - rustc --version
+    - cargo --version
+  interruptible: true
+
+# Rust job template with clippy and rustfmt components
+.rust-lint-template: &rust-lint-template
+  variables:
+    <<: *override-cargo-home
+  before_script:
+    - rustup component add clippy rustfmt
+    - rustc --version
+    - cargo --version
+    - cargo clippy --version
+    - cargo fmt --version
+  interruptible: true
+
+# Pipeline stages
+stages:
+  - build
+  - test
+  - lint
+  - examples
+  - integration
+
+# Build job - compile the project
+build:
+  <<: *rust-job-template
+  stage: build
+  script:
+    - cargo build --verbose
+  cache:
+    - <<: *cargo-registry-cache
+    - <<: *cargo-build-cache
+
+# Test job - run unit tests only (excluding integration tests)
+test:
+  <<: *rust-job-template
+  stage: test
+  script:
+    - cargo test --verbose --lib --bins
+  cache:
+    - <<: *cargo-registry-cache
+    - <<: *cargo-build-cache
+      policy: pull
+  dependencies:
+    - build
+
+# Clippy job - run linting
+clippy:
+  <<: *rust-lint-template
+  stage: lint
+  script:
+    - cargo clippy --all-targets --all-features -- -D warnings
+  cache:
+    - <<: *cargo-registry-cache
+    - <<: *cargo-build-cache
+      policy: pull
+  dependencies:
+    - build
+
+# Format job - check code formatting
+fmt:
+  <<: *rust-lint-template
+  stage: lint
+  script:
+    - cargo fmt --all -- --check
+  cache:
+    - <<: *cargo-registry-cache
+
+# Commit lint job - check commit message format
+commitlint:
+  image: node:20.19.3@sha256:68d27797e56fa39248e0372b1017075c11f3a81b5baa2daa7d23af4b3f8f6918
+  stage: lint
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_TAG'
+      when: never
+  variables:
+    GIT_FETCH_EXTRA_FLAGS: '+refs/heads/main:refs/remotes/origin/main'
+  before_script:
+    - npm install -g @commitlint/cli@17.6.1 @commitlint/config-conventional@17.6.1
+  script:
+    - |
+      echo "module.exports = {
+        extends: ['@commitlint/config-conventional'],
+        rules: {
+          'header-max-length': [2, 'always', 150],
+        },
+      }" > ./commitlint.config.js
+      commitlint --from=$(git merge-base origin/main HEAD) --to=$CI_COMMIT_SHA
+  interruptible: true
+
+# Examples job - build all examples
+examples:
+  <<: *rust-job-template
+  stage: examples
+  script:
+    - cargo build --examples --verbose
+  cache:
+    - <<: *cargo-registry-cache
+    - <<: *cargo-build-cache
+      policy: pull
+  dependencies:
+    - build
+
+# Integration test with JavaScript/Node.js
+integration-js:
+  image: rust:1.88.0@sha256:95f6d6956bf8abd7461763ba7ccd243d8964a41c8eb3f41d895490c782628d7c
+  stage: integration
+  variables:
+    <<: *override-cargo-home
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq curl
+    - curl -fsSL https://nodejs.org/dist/v20.11.1/node-v20.11.1-linux-x64.tar.xz | tar -xJ -C /usr/local --strip-components=1
+    - rustc --version
+    - cargo --version
+    - node --version
+    - npm --version
+  script:
+    - cargo test --test test_with_js --verbose
+  cache:
+    - <<: *cargo-registry-cache
+    - <<: *cargo-build-cache
+      policy: pull
+  dependencies:
+    - build
+  interruptible: true
+
+# Integration test with Python
+integration-python:
+  image: rust:1.88.0@sha256:95f6d6956bf8abd7461763ba7ccd243d8964a41c8eb3f41d895490c782628d7c
+  stage: integration
+  variables:
+    <<: *override-cargo-home
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq python3 python3-pip python3-venv curl
+    - curl -LsSf https://astral.sh/uv/install.sh | sh
+    - export PATH="$HOME/.local/bin:$PATH"
+    - rustc --version
+    - cargo --version
+    - python3 --version
+    - uv --version
+  script:
+    - cargo test --test test_with_python --verbose
+  cache:
+    - <<: *cargo-registry-cache
+    - <<: *cargo-build-cache
+      policy: pull
+  dependencies:
+    - build
+  interruptible: true
