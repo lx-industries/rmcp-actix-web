@@ -3,6 +3,17 @@
 
 image: rust:1.88.0@sha256:95f6d6956bf8abd7461763ba7ccd243d8964a41c8eb3f41d895490c782628d7c
 
+# Global variables for package versions
+variables:
+  COMMITLINT_CLI_VERSION: "17.6.1"
+  COMMITLINT_CONFIG_VERSION: "17.6.1"
+  SEMANTIC_RELEASE_VERSION: "21.0.7"
+  SEMANTIC_RELEASE_CHANGELOG_VERSION: "6.0.3"
+  SEMANTIC_RELEASE_GIT_VERSION: "10.0.1"
+  SEMANTIC_RELEASE_GITLAB_VERSION: "12.1.1"
+  SEMANTIC_RELEASE_EXEC_VERSION: "6.0.3"
+  SEMANTIC_RELEASE_CARGO_VERSION: "2.4.44"
+
 # Workflow rules for automatic pipeline cancellation
 workflow:
   auto_cancel:
@@ -14,11 +25,6 @@ workflow:
     - if: $CI_COMMIT_TAG
 
 # Cache configuration patterns for optimal build performance
-.override-cargo-home: &override-cargo-home
-  # Assume the PWD is CI_PROJECT_DIR, this way we don't have to deal with
-  # Windows (`\`) vs Linux (`/`) path separators.
-  CARGO_HOME: ".cargo"
-
 .cargo-registry-cache: &cargo-registry-cache
   key: $CI_COMMIT_REF_SLUG
   paths:
@@ -39,25 +45,30 @@ workflow:
     - "target"
   policy: pull-push
 
-# Common configuration for all jobs
-.rust-job-template: &rust-job-template
+# Unified Rust job template - consolidated configuration for all Rust jobs
+.rust-template:
   variables:
-    <<: *override-cargo-home
+    # Assume the PWD is CI_PROJECT_DIR, this way we don't have to deal with
+    # Windows (`\`) vs Linux (`/`) path separators.
+    CARGO_HOME: ".cargo"
+  rules:
+    - changes:
+        - "Cargo.toml"
+        - "Cargo.lock"
+        - "src/**/*"
+        - "tests/**/*"
+        - "examples/**/*"
+        - ".cargo/**/*"
   before_script:
     - rustc --version
     - cargo --version
   interruptible: true
 
-# Rust job template with clippy and rustfmt components
-.rust-lint-template: &rust-lint-template
-  variables:
-    <<: *override-cargo-home
+# Semantic release job template - common setup for semantic-release jobs
+.semantic-release-template: &semantic-release-template
+  image: node:20.19.3@sha256:68d27797e56fa39248e0372b1017075c11f3a81b5baa2daa7d23af4b3f8f6918
   before_script:
-    - rustup component add clippy rustfmt
-    - rustc --version
-    - cargo --version
-    - cargo clippy --version
-    - cargo fmt --version
+    - npm install -g semantic-release@${SEMANTIC_RELEASE_VERSION} @semantic-release/changelog@${SEMANTIC_RELEASE_CHANGELOG_VERSION} @semantic-release/git@${SEMANTIC_RELEASE_GIT_VERSION} @semantic-release/gitlab@${SEMANTIC_RELEASE_GITLAB_VERSION} @semantic-release/exec@${SEMANTIC_RELEASE_EXEC_VERSION}
   interruptible: true
 
 # Pipeline stages
@@ -68,10 +79,11 @@ stages:
   - docs
   - examples
   - integration
+  - release
 
 # Build job - compile the project
 build:
-  <<: *rust-job-template
+  extends: .rust-template
   stage: build
   script:
     - cargo build --verbose
@@ -81,7 +93,7 @@ build:
 
 # Test job - run unit tests only (excluding integration tests)
 test:
-  <<: *rust-job-template
+  extends: .rust-template
   stage: test
   script:
     - cargo test --verbose --lib --bins
@@ -94,8 +106,12 @@ test:
 
 # Clippy job - run linting
 clippy:
-  <<: *rust-lint-template
+  extends: .rust-template
   stage: lint
+  before_script:
+    - !reference [.rust-template, before_script]
+    - rustup component add clippy
+    - cargo clippy --version
   script:
     - cargo clippy --all-targets --all-features -- -D warnings
   cache:
@@ -107,16 +123,27 @@ clippy:
 
 # Format job - check code formatting
 fmt:
-  <<: *rust-lint-template
+  extends: .rust-template
   stage: lint
+  before_script:
+    - !reference [.rust-template, before_script]
+    - rustup component add rustfmt
+    - cargo fmt --version
   script:
     - cargo fmt --all -- --check
   cache:
     - <<: *cargo-registry-cache
 
+# Semantic release config lint job - validate semantic-release configuration
+semantic-release-lint:
+  <<: *semantic-release-template
+  stage: lint
+  script:
+    - semantic-release --dry-run --no-ci
+
 # Documentation job - build and check rustdoc
 rustdoc:
-  <<: *rust-job-template
+  extends: .rust-template
   stage: docs
   script:
     # Build documentation with all features and check for warnings
@@ -141,7 +168,7 @@ rustdoc:
 
 # Documentation examples job - ensure all documentation examples compile
 doc-test:
-  <<: *rust-job-template
+  extends: .rust-template
   stage: docs
   script:
     # Run documentation tests to ensure examples compile
@@ -165,7 +192,7 @@ commitlint:
   variables:
     GIT_FETCH_EXTRA_FLAGS: '+refs/heads/main:refs/remotes/origin/main'
   before_script:
-    - npm install -g @commitlint/cli@17.6.1 @commitlint/config-conventional@17.6.1
+    - npm install -g @commitlint/cli@${COMMITLINT_CLI_VERSION} @commitlint/config-conventional@${COMMITLINT_CONFIG_VERSION}
   script:
     - |
       echo "module.exports = {
@@ -179,7 +206,7 @@ commitlint:
 
 # Examples job - build all examples
 examples:
-  <<: *rust-job-template
+  extends: .rust-template
   stage: examples
   script:
     - cargo build --examples --verbose
@@ -192,15 +219,13 @@ examples:
 
 # Integration test with JavaScript/Node.js
 integration-js:
+  extends: .rust-template
   image: rust:1.88.0@sha256:95f6d6956bf8abd7461763ba7ccd243d8964a41c8eb3f41d895490c782628d7c
   stage: integration
-  variables:
-    <<: *override-cargo-home
   before_script:
+    - !reference [.rust-template, before_script]
     - apt-get update -qq && apt-get install -y -qq curl
     - curl -fsSL https://nodejs.org/dist/v20.11.1/node-v20.11.1-linux-x64.tar.xz | tar -xJ -C /usr/local --strip-components=1
-    - rustc --version
-    - cargo --version
     - node --version
     - npm --version
   script:
@@ -215,16 +240,14 @@ integration-js:
 
 # Integration test with Python
 integration-python:
+  extends: .rust-template
   image: rust:1.88.0@sha256:95f6d6956bf8abd7461763ba7ccd243d8964a41c8eb3f41d895490c782628d7c
   stage: integration
-  variables:
-    <<: *override-cargo-home
   before_script:
+    - !reference [.rust-template, before_script]
     - apt-get update -qq && apt-get install -y -qq python3 python3-pip python3-venv curl
     - curl -LsSf https://astral.sh/uv/install.sh | sh
     - export PATH="$HOME/.local/bin:$PATH"
-    - rustc --version
-    - cargo --version
     - python3 --version
     - uv --version
   script:
@@ -236,3 +259,26 @@ integration-python:
   dependencies:
     - build
   interruptible: true
+
+# Semantic release job - automated versioning and releases
+semantic-release:
+  <<: *semantic-release-template
+  stage: release
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RELEASE_ENABLED == "true"'
+    - if: '$CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RELEASE_ENABLED == "true"'
+  variables:
+    GIT_FETCH_EXTRA_FLAGS: '+refs/heads/main:refs/remotes/origin/main'
+  before_script:
+    # Install semantic-release and plugins (from template)
+    - npm install -g semantic-release@${SEMANTIC_RELEASE_VERSION} @semantic-release/changelog@${SEMANTIC_RELEASE_CHANGELOG_VERSION} @semantic-release/git@${SEMANTIC_RELEASE_GIT_VERSION} @semantic-release/gitlab@${SEMANTIC_RELEASE_GITLAB_VERSION} @semantic-release/exec@${SEMANTIC_RELEASE_EXEC_VERSION}
+    # Install semantic-release-cargo static binary
+    - curl -L https://github.com/semantic-release-cargo/semantic-release-cargo/releases/download/v${SEMANTIC_RELEASE_CARGO_VERSION}/semantic-release-cargo-x86_64-unknown-linux-musl -o /usr/local/bin/semantic-release-cargo
+    - chmod +x /usr/local/bin/semantic-release-cargo
+    - semantic-release-cargo --version
+    # Configure git
+    - git config user.name "gitlab-ci-token"
+    - git config user.email "gitlab-ci-token@gitlab.com"
+  script:
+    - semantic-release
+  interruptible: false
