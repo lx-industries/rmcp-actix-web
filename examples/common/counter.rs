@@ -1,3 +1,11 @@
+//! Counter service demonstrating stateful MCP operations.
+//!
+//! This module provides a comprehensive example of an MCP service that:
+//! - Maintains state across tool calls (counter value)
+//! - Implements multiple MCP capabilities (tools, resources, prompts)
+//! - Shows async tool implementations
+//! - Demonstrates HTTP request context usage
+
 #![allow(dead_code)]
 use std::sync::Arc;
 
@@ -12,15 +20,27 @@ use rmcp::{
 use serde_json::json;
 use tokio::sync::Mutex;
 
+/// Example structured request for demonstrating parameter handling.
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct StructRequest {
     pub a: i32,
     pub b: i32,
 }
 
+/// A stateful counter service demonstrating various MCP features.
+///
+/// This service showcases:
+/// - **Stateful operations**: Counter value persists across tool calls
+/// - **Async tools**: Increment/decrement operations use async/await
+/// - **Multiple capabilities**: Tools, resources, and prompts
+/// - **HTTP context**: Access to HTTP headers in initialization
+///
+/// The counter starts at 0 and can be modified through various tool calls.
 #[derive(Clone)]
 pub struct Counter {
+    /// The shared counter state, protected by an async mutex
     counter: Arc<Mutex<i32>>,
+    /// Router for tool dispatch
     tool_router: ToolRouter<Counter>,
 }
 

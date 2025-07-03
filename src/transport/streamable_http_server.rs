@@ -1,3 +1,60 @@
+//! Streamable HTTP transport implementation for MCP.
+//!
+//! This module provides a bidirectional HTTP transport with session management,
+//! supporting both request/response and streaming patterns for MCP communication.
+//!
+//! ## Architecture
+//!
+//! The transport uses two endpoints:
+//! - **Stream endpoint** (`/stream`): For bidirectional streaming communication
+//! - **Message endpoint** (`/message`): For request/response pattern
+//!
+//! ## Features
+//!
+//! - Full bidirectional communication
+//! - Session management with pluggable backends
+//! - Support for both streaming and request/response patterns
+//! - Efficient message routing
+//! - Graceful connection handling
+//!
+//! ## Session Management
+//!
+//! The transport supports different session managers:
+//! - `LocalSessionManager`: In-memory session storage (default)
+//! - Custom implementations via the `SessionManager` trait
+//!
+//! ## Example
+//!
+//! ```rust,no_run
+//! use rmcp_actix_web::StreamableHttpService;
+//! use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
+//! use actix_web::{App, HttpServer};
+//! use std::sync::Arc;
+//!
+//! # use rmcp::{ServerHandler, model::ServerInfo};
+//! # struct MyService;
+//! # impl ServerHandler for MyService {
+//! #     fn get_info(&self) -> ServerInfo { ServerInfo::default() }
+//! # }
+//! # impl MyService { fn new() -> Self { Self } }
+//! #[actix_web::main]
+//! async fn main() -> std::io::Result<()> {
+//!     let service = Arc::new(StreamableHttpService::new(
+//!         || Ok(MyService::new()),
+//!         LocalSessionManager::default().into(),
+//!         Default::default(),
+//!     ));
+//!
+//!     HttpServer::new(move || {
+//!         App::new()
+//!             .configure(|cfg| service.clone().config(cfg))
+//!     })
+//!     .bind("127.0.0.1:8080")?
+//!     .run()
+//!     .await
+//! }
+//! ```
+
 use std::sync::Arc;
 
 use actix_web::{
@@ -30,11 +87,62 @@ const HEADER_X_ACCEL_BUFFERING: &str = "X-Accel-Buffering";
 const EVENT_STREAM_MIME_TYPE: &str = "text/event-stream";
 const JSON_MIME_TYPE: &str = "application/json";
 
+/// Streamable HTTP transport service for actix-web integration.
+///
+/// Provides bidirectional MCP communication over HTTP with session management.
+/// This service can be integrated into existing actix-web applications or used
+/// standalone.
+///
+/// # Type Parameters
+///
+/// * `S` - The MCP service type that handles protocol messages
+/// * `M` - The session manager type (defaults to `LocalSessionManager`)
+///
+/// # Architecture
+///
+/// The service manages two main endpoints:
+/// - Streaming endpoint for long-lived bidirectional connections
+/// - Message endpoint for request/response patterns
+///
+/// Each client is identified by a session ID that must be provided in request headers.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use rmcp_actix_web::StreamableHttpService;
+/// use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
+/// use actix_web::{App, HttpServer, web};
+///
+/// # use rmcp::{ServerHandler, model::ServerInfo};
+/// # struct MyService;
+/// # impl ServerHandler for MyService {
+/// #     fn get_info(&self) -> ServerInfo { ServerInfo::default() }
+/// # }
+/// # impl MyService { fn new() -> Self { Self } }
+/// #[actix_web::main]
+/// async fn main() -> std::io::Result<()> {
+///     let service = StreamableHttpService::new(
+///         || Ok(MyService::new()),
+///         LocalSessionManager::default().into(),
+///         Default::default(),
+///     );
+///
+///     HttpServer::new(move || {
+///         App::new()
+///             // Mount the service at a specific path
+///             .service(web::scope("/mcp").configure(|cfg| { let _ = cfg; }))
+///     })
+///     .bind("127.0.0.1:8080")?
+///     .run()
+///     .await
+/// }
+/// ```
 #[derive(Clone)]
 pub struct StreamableHttpService<
     S,
     M = rmcp::transport::streamable_http_server::session::local::LocalSessionManager,
 > {
+    /// The configuration for this service instance.
     pub config: StreamableHttpServerConfig,
     session_manager: Arc<M>,
     service_factory: Arc<dyn Fn() -> Result<S, std::io::Error> + Send + Sync>,
@@ -42,9 +150,37 @@ pub struct StreamableHttpService<
 
 impl<S, M> StreamableHttpService<S, M>
 where
-    S: rmcp::Service<RoleServer> + Send + 'static,
+    S: rmcp::ServerHandler + Send + 'static,
     M: SessionManager + 'static,
 {
+    /// Creates a new streamable HTTP service.
+    ///
+    /// # Arguments
+    ///
+    /// * `service_factory` - A function that creates new MCP service instances.
+    ///   This is called for each new client session.
+    /// * `session_manager` - The session manager for tracking client connections
+    /// * `config` - Service configuration (currently uses defaults)
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use rmcp_actix_web::StreamableHttpService;
+    /// use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
+    /// use std::sync::Arc;
+    ///
+    /// # use rmcp::{ServerHandler, model::ServerInfo};
+    /// # struct MyService;
+    /// # impl ServerHandler for MyService {
+    /// #     fn get_info(&self) -> ServerInfo { ServerInfo::default() }
+    /// # }
+    /// # impl MyService { fn new() -> Self { Self } }
+    /// let service = StreamableHttpService::new(
+    ///     || Ok(MyService::new()),
+    ///     Arc::new(LocalSessionManager::default()),
+    ///     Default::default(),
+    /// );
+    /// ```
     pub fn new(
         service_factory: impl Fn() -> Result<S, std::io::Error> + Send + Sync + 'static,
         session_manager: Arc<M>,
@@ -61,7 +197,51 @@ where
         (self.service_factory)()
     }
 
-    /// Configure actix_web routes for the streamable HTTP server
+    /// Configures actix-web routes for this service.
+    ///
+    /// This method returns a configuration function that can be used with
+    /// actix-web's `App::configure()` or `Scope::configure()` methods.
+    ///
+    /// # Arguments
+    ///
+    /// * `cfg` - The actix-web service configuration
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use rmcp_actix_web::StreamableHttpService;
+    /// use actix_web::{App, HttpServer};
+    /// use std::sync::Arc;
+    /// # use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
+    /// # use rmcp::{ServerHandler, model::ServerInfo};
+    /// # struct MyService;
+    /// # impl ServerHandler for MyService {
+    /// #     fn get_info(&self) -> ServerInfo { ServerInfo::default() }
+    /// # }
+    /// # impl MyService { fn new() -> Self { Self } }
+    ///
+    /// #[actix_web::main]
+    /// async fn main() -> std::io::Result<()> {
+    ///     let service = Arc::new(StreamableHttpService::new(
+    ///         || Ok(MyService::new()),
+    ///         LocalSessionManager::default().into(),
+    ///         Default::default(),
+    ///     ));
+    ///
+    ///     HttpServer::new(move || {
+    ///         App::new()
+    ///             .configure(|cfg| service.clone().config(cfg))
+    ///     })
+    ///     .bind("127.0.0.1:8080")?
+    ///     .run()
+    ///     .await
+    /// }
+    /// ```
+    pub fn config(self: Arc<Self>, cfg: &mut web::ServiceConfig) {
+        Self::configure(self)(cfg);
+    }
+
+    /// Configure actix_web routes for the streamable HTTP server (static version)
     pub fn configure(service: Arc<Self>) -> impl FnOnce(&mut web::ServiceConfig) {
         move |cfg: &mut web::ServiceConfig| {
             cfg.service(

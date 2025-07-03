@@ -1,3 +1,56 @@
+//! Server-Sent Events (SSE) transport implementation for MCP.
+//!
+//! This module provides a unidirectional transport using the SSE protocol,
+//! allowing servers to push real-time updates to clients over a standard HTTP connection.
+//!
+//! ## Architecture
+//!
+//! The SSE transport consists of two HTTP endpoints:
+//! - **SSE endpoint** (`/sse` by default): Clients connect here to receive server-sent events
+//! - **POST endpoint** (`/message` by default): Clients send JSON-RPC messages here
+//!
+//! ## Connection Flow
+//!
+//! 1. Client connects to the SSE endpoint with a session ID
+//! 2. Server establishes an event stream for real-time messages
+//! 3. Client sends requests to the POST endpoint with the same session ID
+//! 4. Server processes requests and sends responses via the SSE stream
+//!
+//! ## Features
+//!
+//! - Automatic keep-alive pings to maintain connections
+//! - Session management for multiple concurrent clients
+//! - Graceful shutdown via cancellation tokens
+//! - Compatible with proxies and firewalls
+//!
+//! ## Example
+//!
+//! ```rust,no_run
+//! use rmcp_actix_web::{SseServer, SseServerConfig};
+//! use tokio_util::sync::CancellationToken;
+//!
+//! # struct MyService;
+//! # use rmcp::{ServerHandler, model::ServerInfo};
+//! # impl ServerHandler for MyService {
+//! #     fn get_info(&self) -> ServerInfo { ServerInfo::default() }
+//! # }
+//! # impl MyService {
+//! #     fn new() -> Self { Self }
+//! # }
+//! #[actix_web::main]
+//! async fn main() -> std::io::Result<()> {
+//!     // Simple server with defaults
+//!     let server = SseServer::serve("127.0.0.1:8080".parse().unwrap()).await?;
+//!     
+//!     // Attach service and get cancellation token
+//!     let ct = server.with_service(|| MyService::new());
+//!     
+//!     // Server runs until cancelled
+//!     ct.cancelled().await;
+//!     Ok(())
+//! }
+//! ```
+
 use std::{collections::HashMap, io, sync::Arc, time::Duration};
 
 use actix_web::{
@@ -14,7 +67,7 @@ use tokio_util::sync::{CancellationToken, PollSender};
 use tracing::Instrument;
 
 use rmcp::{
-    RoleServer, Service,
+    RoleServer,
     model::ClientJsonRpcMessage,
     service::{RxJsonRpcMessage, TxJsonRpcMessage, serve_directly_with_ct},
     transport::{
@@ -57,9 +110,11 @@ impl AppData {
     }
 }
 
+#[doc(hidden)]
 #[derive(Debug, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PostEventQuery {
+    /// The session ID from the query string
     pub session_id: String,
 }
 
@@ -177,6 +232,11 @@ async fn sse_handler(app_data: Data<AppData>, _req: HttpRequest) -> Result<HttpR
         .streaming(sse_stream))
 }
 
+/// Transport handle for an individual SSE client connection.
+///
+/// Implements both `Sink` and `Stream` traits to provide bidirectional communication
+/// for a single client session. This is created internally for each client connection
+/// and passed to the MCP service.
 pub struct SseServerTransport {
     stream: ReceiverStream<RxJsonRpcMessage<RoleServer>>,
     sink: PollSender<TxJsonRpcMessage<RoleServer>>,
@@ -244,14 +304,78 @@ impl Stream for SseServerTransport {
     }
 }
 
+/// Server-Sent Events transport server for MCP.
+///
+/// Provides a unidirectional streaming transport from server to client using the SSE protocol.
+/// Clients connect to the SSE endpoint to receive events and send requests via a separate POST endpoint.
+///
+/// # Architecture
+///
+/// The server manages two endpoints:
+/// - SSE endpoint for server-to-client streaming
+/// - POST endpoint for client-to-server messages
+///
+/// Each client connection is identified by a unique session ID that must be provided
+/// in both the SSE connection and POST requests.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use rmcp_actix_web::SseServer;
+/// # use rmcp::{ServerHandler, model::ServerInfo};
+/// # struct MyService;
+/// # impl ServerHandler for MyService {
+/// #     fn get_info(&self) -> ServerInfo { ServerInfo::default() }
+/// # }
+/// # impl MyService { fn new() -> Self { Self } }
+///
+/// #[actix_web::main]
+/// async fn main() -> std::io::Result<()> {
+///     // Start server with default configuration
+///     let server = SseServer::serve("127.0.0.1:8080".parse().unwrap()).await?;
+///     
+///     // Attach MCP service
+///     let ct = server.with_service(|| MyService::new());
+///     
+///     // Run until cancelled
+///     ct.cancelled().await;
+///     Ok(())
+/// }
+/// ```
 #[derive(Debug)]
 pub struct SseServer {
     transport_rx: Arc<Mutex<tokio::sync::mpsc::UnboundedReceiver<SseServerTransport>>>,
+    /// The configuration used by this server instance.
     pub config: SseServerConfig,
     app_data: Data<AppData>,
 }
 
 impl SseServer {
+    /// Creates and starts an SSE server with default configuration.
+    ///
+    /// This is the simplest way to start an SSE server. It uses default paths
+    /// (`/sse` for events, `/message` for POST) and creates a new cancellation token.
+    ///
+    /// # Arguments
+    ///
+    /// * `bind` - The socket address to bind to
+    ///
+    /// # Returns
+    ///
+    /// Returns the server instance on success, or an I/O error if binding fails.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use rmcp_actix_web::SseServer;
+    ///
+    /// #[actix_web::main]
+    /// async fn main() -> std::io::Result<()> {
+    ///     let server = SseServer::serve("127.0.0.1:8080".parse().unwrap()).await?;
+    ///     // Server is now running
+    ///     Ok(())
+    /// }
+    /// ```
     pub async fn serve(bind: std::net::SocketAddr) -> io::Result<Self> {
         Self::serve_with_config(SseServerConfig {
             bind,
@@ -263,6 +387,40 @@ impl SseServer {
         .await
     }
 
+    /// Creates and starts an SSE server with custom configuration.
+    ///
+    /// Allows full control over server configuration including paths, bind address,
+    /// keep-alive intervals, and cancellation token.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - The server configuration
+    ///
+    /// # Returns
+    ///
+    /// Returns the configured server instance on success, or an I/O error if binding fails.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use rmcp_actix_web::{SseServer, SseServerConfig};
+    /// use tokio_util::sync::CancellationToken;
+    /// use std::time::Duration;
+    ///
+    /// #[actix_web::main]
+    /// async fn main() -> std::io::Result<()> {
+    ///     let config = SseServerConfig {
+    ///         bind: "127.0.0.1:8080".parse().unwrap(),
+    ///         sse_path: "/events".to_string(),
+    ///         post_path: "/rpc".to_string(),
+    ///         ct: CancellationToken::new(),
+    ///         sse_keep_alive: Some(Duration::from_secs(30)),
+    ///     };
+    ///     
+    ///     let server = SseServer::serve_with_config(config).await?;
+    ///     Ok(())
+    /// }
+    /// ```
     pub async fn serve_with_config(mut config: SseServerConfig) -> io::Result<Self> {
         let bind_addr = config.bind;
         let ct = config.ct.clone();
@@ -310,6 +468,46 @@ impl SseServer {
         Ok(sse_server)
     }
 
+    /// Creates a new SSE server without starting the HTTP server.
+    ///
+    /// This method returns both the server instance and an actix-web `Scope` that can be
+    /// mounted into an existing actix-web application. This allows integration with
+    /// existing web services.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - The server configuration
+    ///
+    /// # Returns
+    ///
+    /// Returns a tuple of:
+    /// - The `SseServer` instance
+    /// - An actix-web `Scope` configured with the SSE routes
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use rmcp_actix_web::{SseServer, SseServerConfig};
+    /// use actix_web::{App, HttpServer};
+    /// use tokio_util::sync::CancellationToken;
+    ///
+    /// #[actix_web::main]
+    /// async fn main() -> std::io::Result<()> {
+    ///     let config = SseServerConfig {
+    ///         bind: "127.0.0.1:8080".parse().unwrap(),
+    ///         sse_path: "/sse".to_string(),
+    ///         post_path: "/message".to_string(),
+    ///         ct: CancellationToken::new(),
+    ///         sse_keep_alive: None,
+    ///     };
+    ///     let (server, scope) = SseServer::new(config);
+    ///     
+    ///     // Mount into existing app
+    ///     // Note: In real usage, you would configure the app differently
+    ///     // to avoid scope cloning issues
+    ///     Ok(())
+    /// }
+    /// ```
     pub fn new(config: SseServerConfig) -> (SseServer, Scope) {
         let (app_data, transport_rx) = AppData::new(
             config.post_path.clone(),
@@ -335,9 +533,46 @@ impl SseServer {
         (server, scope)
     }
 
+    /// Attaches an MCP service to the server and starts processing connections.
+    ///
+    /// This method spawns a background task that creates a new service instance
+    /// for each incoming client connection. The service provider function is called
+    /// once per connection to allow for per-connection state.
+    ///
+    /// # Arguments
+    ///
+    /// * `service_provider` - A function that creates new service instances
+    ///
+    /// # Returns
+    ///
+    /// Returns the server's cancellation token. The server will run until this token is cancelled.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use rmcp_actix_web::SseServer;
+    /// # use rmcp::{ServerHandler, model::ServerInfo};
+    /// # struct MyService;
+    /// # impl ServerHandler for MyService {
+    /// #     fn get_info(&self) -> ServerInfo { ServerInfo::default() }
+    /// # }
+    /// # impl MyService { fn new() -> Self { Self } }
+    ///
+    /// #[actix_web::main]
+    /// async fn main() -> std::io::Result<()> {
+    ///     let server = SseServer::serve("127.0.0.1:8080".parse().unwrap()).await?;
+    ///     
+    ///     // Attach service - new instance per connection
+    ///     let ct = server.with_service(|| MyService::new());
+    ///     
+    ///     // Wait for shutdown
+    ///     ct.cancelled().await;
+    ///     Ok(())
+    /// }
+    /// ```
     pub fn with_service<S, F>(self, service_provider: F) -> CancellationToken
     where
-        S: Service<RoleServer>,
+        S: rmcp::ServerHandler,
         F: Fn() -> S + Send + 'static,
     {
         use rmcp::service::ServiceExt;
@@ -361,10 +596,45 @@ impl SseServer {
         self.config.ct.clone()
     }
 
-    /// This allows you to skip the initialization steps for incoming request.
+    /// Attaches an MCP service using direct initialization.
+    ///
+    /// Similar to [`with_service`](Self::with_service) but skips the standard MCP
+    /// initialization handshake. This is useful when the client doesn't require
+    /// the initialization phase or when implementing custom initialization logic.
+    ///
+    /// # Arguments
+    ///
+    /// * `service_provider` - A function that creates new service instances
+    ///
+    /// # Returns
+    ///
+    /// Returns the server's cancellation token.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use rmcp_actix_web::SseServer;
+    /// # use rmcp::{ServerHandler, model::ServerInfo};
+    /// # struct MyService;
+    /// # impl ServerHandler for MyService {
+    /// #     fn get_info(&self) -> ServerInfo { ServerInfo::default() }
+    /// # }
+    /// # impl MyService { fn new() -> Self { Self } }
+    ///
+    /// #[actix_web::main]
+    /// async fn main() -> std::io::Result<()> {
+    ///     let server = SseServer::serve("127.0.0.1:8080".parse().unwrap()).await?;
+    ///     
+    ///     // Skip initialization handshake
+    ///     let ct = server.with_service_directly(|| MyService::new());
+    ///     
+    ///     ct.cancelled().await;
+    ///     Ok(())
+    /// }
+    /// ```
     pub fn with_service_directly<S, F>(self, service_provider: F) -> CancellationToken
     where
-        S: Service<RoleServer>,
+        S: rmcp::ServerHandler,
         F: Fn() -> S + Send + 'static,
     {
         let ct = self.config.ct.clone();
@@ -384,10 +654,19 @@ impl SseServer {
         self.config.ct.clone()
     }
 
+    /// Cancels the server by triggering its cancellation token.
+    ///
+    /// This will shut down the HTTP server and any active client connections.
     pub fn cancel(&self) {
         self.config.ct.cancel();
     }
 
+    /// Waits for and returns the next client transport connection.
+    ///
+    /// This method is primarily used internally but can be useful for
+    /// advanced use cases where you want to handle transports manually.
+    ///
+    /// Returns `None` when the server is shut down.
     pub async fn next_transport(&self) -> Option<SseServerTransport> {
         self.transport_rx.lock().await.recv().await
     }

@@ -65,6 +65,7 @@ stages:
   - build
   - test
   - lint
+  - docs
   - examples
   - integration
 
@@ -112,6 +113,45 @@ fmt:
     - cargo fmt --all -- --check
   cache:
     - <<: *cargo-registry-cache
+
+# Documentation job - build and check rustdoc
+rustdoc:
+  <<: *rust-job-template
+  stage: docs
+  script:
+    # Build documentation with all features and check for warnings
+    - cargo doc --all-features --no-deps
+    # Verify no missing documentation warnings
+    - cargo doc --all-features --no-deps 2>&1 | tee doc-output.txt
+    - '! grep -E "warning.*missing documentation" doc-output.txt || (echo "Missing documentation found!" && exit 1)'
+    # Also build with private items to ensure internal documentation is complete
+    - cargo rustdoc -- --document-private-items
+  cache:
+    - <<: *cargo-registry-cache
+    - <<: *cargo-build-cache
+      policy: pull
+  dependencies:
+    - build
+  artifacts:
+    paths:
+      - target/doc
+      - doc-output.txt
+    expire_in: 1 week
+    when: always
+
+# Documentation examples job - ensure all documentation examples compile
+doc-test:
+  <<: *rust-job-template
+  stage: docs
+  script:
+    # Run documentation tests to ensure examples compile
+    - cargo test --doc --all-features
+  cache:
+    - <<: *cargo-registry-cache
+    - <<: *cargo-build-cache
+      policy: pull
+  dependencies:
+    - build
 
 # Commit lint job - check commit message format
 commitlint:
