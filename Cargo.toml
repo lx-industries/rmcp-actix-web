@@ -7,7 +7,7 @@ license = "MIT"
 repository = "https://gitlab.com/lx-industries/rmcp-actix-web"
 homepage = "https://gitlab.com/lx-industries/rmcp-actix-web"
 readme = "README.md"
-keywords = ["mcp", "model-context-protocol", "actix-web", "transport"]
+keywords = ["mcp", "actix", "actix-web", "protocol", "llm"]
 categories = ["network-programming", "web-programming"]
 
 [dependencies]
