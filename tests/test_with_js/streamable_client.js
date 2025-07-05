@@ -18,11 +18,11 @@ const client = new Client(
 );
 await client.connect(transport);
 const tools = await client.listTools();
-console.log(tools);
+console.log(JSON.stringify(tools));
 const resources = await client.listResources();
-console.log(resources);
+console.log(JSON.stringify(resources));
 const templates = await client.listResourceTemplates();
-console.log(templates);
+console.log(JSON.stringify(templates));
 const prompts = await client.listPrompts();
-console.log(prompts);
+console.log(JSON.stringify(prompts));
 await client.close();

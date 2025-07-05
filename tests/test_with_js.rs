@@ -29,12 +29,32 @@ async fn test_with_js_client() -> anyhow::Result<()> {
         .await?
         .with_service(Calculator::default);
 
-    let exit_status = tokio::process::Command::new("node")
+    let output = tokio::process::Command::new("node")
         .arg("tests/test_with_js/client.js")
-        .spawn()?
-        .wait()
+        .output()
         .await?;
-    assert!(exit_status.success());
+    assert!(output.status.success());
+
+    // Capture and validate the actual MCP responses
+    let stdout = String::from_utf8(output.stdout)?;
+    let mut responses: Vec<serde_json::Value> = stdout
+        .lines()
+        .filter(|line| !line.is_empty())
+        .map(serde_json::from_str)
+        .collect::<Result<Vec<_>, _>>()?;
+
+    // Sort arrays for deterministic snapshots (preserve_order handles object properties)
+    for response in &mut responses {
+        if let Some(tools) = response.get_mut("tools").and_then(|t| t.as_array_mut()) {
+            tools.sort_by(|a, b| {
+                let name_a = a.get("name").and_then(|n| n.as_str()).unwrap_or("");
+                let name_b = b.get("name").and_then(|n| n.as_str()).unwrap_or("");
+                name_a.cmp(name_b)
+            });
+        }
+    }
+
+    insta::assert_json_snapshot!("js_sse_client_responses", responses);
     ct.cancel();
     Ok(())
 }
@@ -83,12 +103,32 @@ async fn test_with_js_streamable_http_client() -> anyhow::Result<()> {
     // Give the server a moment to start
     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 
-    let exit_status = tokio::process::Command::new("node")
+    let output = tokio::process::Command::new("node")
         .arg("tests/test_with_js/streamable_client.js")
-        .spawn()?
-        .wait()
+        .output()
         .await?;
-    assert!(exit_status.success());
+    assert!(output.status.success());
+
+    // Capture and validate the actual MCP responses
+    let stdout = String::from_utf8(output.stdout)?;
+    let mut responses: Vec<serde_json::Value> = stdout
+        .lines()
+        .filter(|line| !line.is_empty())
+        .map(serde_json::from_str)
+        .collect::<Result<Vec<_>, _>>()?;
+
+    // Sort arrays for deterministic snapshots (preserve_order handles object properties)
+    for response in &mut responses {
+        if let Some(tools) = response.get_mut("tools").and_then(|t| t.as_array_mut()) {
+            tools.sort_by(|a, b| {
+                let name_a = a.get("name").and_then(|n| n.as_str()).unwrap_or("");
+                let name_b = b.get("name").and_then(|n| n.as_str()).unwrap_or("");
+                name_a.cmp(name_b)
+            });
+        }
+    }
+
+    insta::assert_json_snapshot!("js_streamable_http_client_responses", responses);
 
     server_handle.stop(true).await;
     let _ = server_task.await;

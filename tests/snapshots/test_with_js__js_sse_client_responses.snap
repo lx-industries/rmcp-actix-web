@@ -1,0 +1,71 @@
+---
+source: tests/test_with_js.rs
+expression: responses
+---
+[
+  {
+    "tools": [
+      {
+        "name": "sub",
+        "description": "Calculate the sub of two numbers",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "a": {
+              "description": "the left hand side number",
+              "type": "integer",
+              "format": "int32"
+            },
+            "b": {
+              "description": "the right hand side number",
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "required": [
+            "a",
+            "b"
+          ],
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "title": "SubRequest",
+          "description": "Request structure for the subtraction operation.\n\nSimilar to SumRequest but for subtraction, showing consistent parameter definition patterns."
+        }
+      },
+      {
+        "name": "sum",
+        "description": "Calculate the sum of two numbers",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "a": {
+              "description": "the left hand side number",
+              "type": "integer",
+              "format": "int32"
+            },
+            "b": {
+              "description": "The right hand side number to add",
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "required": [
+            "a",
+            "b"
+          ],
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "title": "SumRequest",
+          "description": "Request structure for the sum operation.\n\nDemonstrates how to define typed parameters for MCP tools with JSON schema generation support."
+        }
+      }
+    ]
+  },
+  {
+    "resources": []
+  },
+  {
+    "resourceTemplates": []
+  },
+  {
+    "prompts": []
+  }
+]

@@ -30,15 +30,35 @@ async fn test_with_python_client() -> anyhow::Result<()> {
         .await?
         .with_service(Calculator::default);
 
-    let status = tokio::process::Command::new("uv")
+    let output = tokio::process::Command::new("uv")
         .arg("run")
         .arg("client.py")
         .arg(format!("http://{BIND_ADDRESS}/sse"))
         .current_dir("tests/test_with_python")
-        .spawn()?
-        .wait()
+        .output()
         .await?;
-    assert!(status.success());
+    assert!(output.status.success());
+
+    // Capture and validate the actual MCP responses
+    let stdout = String::from_utf8(output.stdout)?;
+    let mut responses: Vec<serde_json::Value> = stdout
+        .lines()
+        .filter(|line| !line.is_empty())
+        .map(serde_json::from_str)
+        .collect::<Result<Vec<_>, _>>()?;
+
+    // Sort arrays for deterministic snapshots (preserve_order handles object properties)
+    for response in &mut responses {
+        if let Some(tools) = response.get_mut("tools").and_then(|t| t.as_array_mut()) {
+            tools.sort_by(|a, b| {
+                let name_a = a.get("name").and_then(|n| n.as_str()).unwrap_or("");
+                let name_b = b.get("name").and_then(|n| n.as_str()).unwrap_or("");
+                name_a.cmp(name_b)
+            });
+        }
+    }
+
+    insta::assert_json_snapshot!("python_sse_client_responses", responses);
     ct.cancel();
     Ok(())
 }

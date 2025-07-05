@@ -6,8 +6,9 @@ build-backend = "setuptools.build_meta"
 name = "test_with_python"
 version = "0.1.0"
 description = "Test Python client for RMCP"
+requires-python = ">=3.12"
 dependencies = [
-  "fastmcp",
+  "fastmcp==2.10.1",
 ]
 
 [tool.setuptools]
