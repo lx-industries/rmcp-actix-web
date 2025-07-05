@@ -13,6 +13,7 @@ variables:
   SEMANTIC_RELEASE_GITLAB_VERSION: "12.1.1"
   SEMANTIC_RELEASE_EXEC_VERSION: "6.0.3"
   SEMANTIC_RELEASE_CARGO_VERSION: "2.4.44"
+  CONVENTIONAL_CHANGELOG_CONVENTIONALCOMMITS_VERSION: "7.0.2"
 
 # Workflow rules for automatic pipeline cancellation
 workflow:
@@ -68,7 +69,7 @@ workflow:
 .semantic-release-template: &semantic-release-template
   image: node:20.19.3@sha256:68d27797e56fa39248e0372b1017075c11f3a81b5baa2daa7d23af4b3f8f6918
   before_script:
-    - npm install -g semantic-release@${SEMANTIC_RELEASE_VERSION} @semantic-release/changelog@${SEMANTIC_RELEASE_CHANGELOG_VERSION} @semantic-release/git@${SEMANTIC_RELEASE_GIT_VERSION} @semantic-release/gitlab@${SEMANTIC_RELEASE_GITLAB_VERSION} @semantic-release/exec@${SEMANTIC_RELEASE_EXEC_VERSION}
+    - npm install -g semantic-release@${SEMANTIC_RELEASE_VERSION} @semantic-release/changelog@${SEMANTIC_RELEASE_CHANGELOG_VERSION} @semantic-release/git@${SEMANTIC_RELEASE_GIT_VERSION} @semantic-release/gitlab@${SEMANTIC_RELEASE_GITLAB_VERSION} @semantic-release/exec@${SEMANTIC_RELEASE_EXEC_VERSION} conventional-changelog-conventionalcommits@${CONVENTIONAL_CHANGELOG_CONVENTIONALCOMMITS_VERSION}
   interruptible: true
 
 # Pipeline stages
@@ -271,7 +272,7 @@ semantic-release:
     GIT_FETCH_EXTRA_FLAGS: '+refs/heads/main:refs/remotes/origin/main'
   before_script:
     # Install semantic-release and plugins (from template)
-    - npm install -g semantic-release@${SEMANTIC_RELEASE_VERSION} @semantic-release/changelog@${SEMANTIC_RELEASE_CHANGELOG_VERSION} @semantic-release/git@${SEMANTIC_RELEASE_GIT_VERSION} @semantic-release/gitlab@${SEMANTIC_RELEASE_GITLAB_VERSION} @semantic-release/exec@${SEMANTIC_RELEASE_EXEC_VERSION}
+    - npm install -g semantic-release@${SEMANTIC_RELEASE_VERSION} @semantic-release/changelog@${SEMANTIC_RELEASE_CHANGELOG_VERSION} @semantic-release/git@${SEMANTIC_RELEASE_GIT_VERSION} @semantic-release/gitlab@${SEMANTIC_RELEASE_GITLAB_VERSION} @semantic-release/exec@${SEMANTIC_RELEASE_EXEC_VERSION} conventional-changelog-conventionalcommits@${CONVENTIONAL_CHANGELOG_CONVENTIONALCOMMITS_VERSION}
     # Install semantic-release-cargo static binary
     - curl -L https://github.com/semantic-release-cargo/semantic-release-cargo/releases/download/v${SEMANTIC_RELEASE_CARGO_VERSION}/semantic-release-cargo-x86_64-unknown-linux-musl -o /usr/local/bin/semantic-release-cargo
     - chmod +x /usr/local/bin/semantic-release-cargo
