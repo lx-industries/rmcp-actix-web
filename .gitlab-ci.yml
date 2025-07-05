@@ -25,6 +25,15 @@ workflow:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_TAG
 
+# Common file patterns for Rust jobs
+.rust-changes: &rust-changes
+  - "Cargo.toml"
+  - "Cargo.lock"
+  - "src/**/*"
+  - "tests/**/*"
+  - "examples/**/*"
+  - ".cargo/**/*"
+
 # Cache configuration patterns for optimal build performance
 .cargo-registry-cache: &cargo-registry-cache
   key: $CI_COMMIT_REF_SLUG
@@ -53,13 +62,10 @@ workflow:
     # Windows (`\`) vs Linux (`/`) path separators.
     CARGO_HOME: ".cargo"
   rules:
-    - changes:
-        - "Cargo.toml"
-        - "Cargo.lock"
-        - "src/**/*"
-        - "tests/**/*"
-        - "examples/**/*"
-        - ".cargo/**/*"
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: *rust-changes
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *rust-changes
   before_script:
     - rustc --version
     - cargo --version
