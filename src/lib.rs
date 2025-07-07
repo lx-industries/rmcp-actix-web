@@ -123,6 +123,7 @@ pub mod transport;
 /// the SSE protocol. Ideal for streaming updates, notifications, and real-time data.
 ///
 /// See the [module documentation](transport::sse_server) for more details.
+#[cfg(feature = "transport-sse-server")]
 pub use transport::sse_server::SseServer;
 
 /// Streamable HTTP transport service for actix-web integration.
@@ -131,6 +132,7 @@ pub use transport::sse_server::SseServer;
 /// HTTP streaming protocol. Supports both request/response and streaming patterns.
 ///
 /// See the [module documentation](transport::streamable_http_server) for more details.
+#[cfg(feature = "transport-streamable-http-server")]
 pub use transport::streamable_http_server::StreamableHttpService;
 
 // Re-exports of configuration types from rmcp
@@ -157,9 +159,11 @@ pub use rmcp::transport::common::server_side_http::SessionId;
 ///     sse_keep_alive: Some(std::time::Duration::from_secs(30)),
 /// };
 /// ```
+#[cfg(feature = "transport-sse-server")]
 pub use rmcp::transport::sse_server::SseServerConfig;
 
 /// Configuration for the streamable HTTP server transport.
 ///
 /// Currently uses default configuration. Future versions may add customization options.
+#[cfg(feature = "transport-streamable-http-server")]
 pub use rmcp::transport::streamable_http_server::StreamableHttpServerConfig;

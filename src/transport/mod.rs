@@ -73,9 +73,11 @@
 /// Server-Sent Events transport implementation.
 ///
 /// Provides unidirectional streaming from server to client using the SSE protocol.
+#[cfg(feature = "transport-sse-server")]
 pub mod sse_server;
 
 /// Streamable HTTP transport implementation.
 ///
 /// Provides bidirectional communication with session management.
+#[cfg(feature = "transport-streamable-http-server")]
 pub mod streamable_http_server;
