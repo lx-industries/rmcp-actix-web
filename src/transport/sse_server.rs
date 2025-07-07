@@ -472,7 +472,8 @@ impl SseServer {
     ///
     /// This method returns both the server instance and an actix-web `Scope` that can be
     /// mounted into an existing actix-web application. This allows integration with
-    /// existing web services.
+    /// existing web services and follows the RMCP pattern where the framework router
+    /// is returned directly for composition.
     ///
     /// # Arguments
     ///
@@ -488,7 +489,7 @@ impl SseServer {
     ///
     /// ```rust,no_run
     /// use rmcp_actix_web::{SseServer, SseServerConfig};
-    /// use actix_web::{App, HttpServer};
+    /// use actix_web::{App, HttpServer, web};
     /// use tokio_util::sync::CancellationToken;
     ///
     /// #[actix_web::main]
@@ -502,9 +503,10 @@ impl SseServer {
     ///     };
     ///     let (server, scope) = SseServer::new(config);
     ///     
-    ///     // Mount into existing app
-    ///     // Note: In real usage, you would configure the app differently
-    ///     // to avoid scope cloning issues
+    ///     // Mount into existing app at a custom path
+    ///     let app = App::new()
+    ///         .service(web::scope("/api/v1").service(scope));
+    ///     
     ///     Ok(())
     /// }
     /// ```

@@ -58,7 +58,7 @@
 use std::sync::Arc;
 
 use actix_web::{
-    HttpRequest, HttpResponse, Result,
+    HttpRequest, HttpResponse, Result, Scope,
     error::InternalError,
     http::{
         StatusCode,
@@ -241,17 +241,74 @@ where
         Self::configure(self)(cfg);
     }
 
+    /// Creates a new scope configured with this service for framework-level composition.
+    ///
+    /// This method provides framework-level composition aligned with RMCP patterns,
+    /// similar to how `SseServer::new()` returns a scope. This allows mounting the
+    /// streamable HTTP service at custom paths using actix-web's routing.
+    ///
+    /// # Arguments
+    ///
+    /// * `service` - Arc-wrapped service instance
+    ///
+    /// # Returns
+    ///
+    /// Returns an actix-web `Scope` configured with the streamable HTTP routes
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use rmcp_actix_web::StreamableHttpService;
+    /// use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
+    /// use actix_web::{App, HttpServer, web};
+    /// use std::sync::Arc;
+    ///
+    /// # use rmcp::{ServerHandler, model::ServerInfo};
+    /// # struct MyService;
+    /// # impl ServerHandler for MyService {
+    /// #     fn get_info(&self) -> ServerInfo { ServerInfo::default() }
+    /// # }
+    /// # impl MyService { fn new() -> Self { Self } }
+    /// #[actix_web::main]
+    /// async fn main() -> std::io::Result<()> {
+    ///     let service = Arc::new(StreamableHttpService::new(
+    ///         || Ok(MyService::new()),
+    ///         LocalSessionManager::default().into(),
+    ///         Default::default(),
+    ///     ));
+    ///     
+    ///     let scope = StreamableHttpService::scope(service);
+    ///     
+    ///     // Mount into existing app at a custom path
+    ///     let app = App::new()
+    ///         .service(web::scope("/api/v1/mcp").service(scope));
+    ///     
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn scope(
+        service: Arc<Self>,
+    ) -> Scope<
+        impl actix_web::dev::ServiceFactory<
+            actix_web::dev::ServiceRequest,
+            Config = (),
+            Response = actix_web::dev::ServiceResponse,
+            Error = actix_web::Error,
+            InitError = (),
+        >,
+    > {
+        web::scope("")
+            .app_data(Data::new(service.clone()))
+            .wrap(middleware::NormalizePath::trim())
+            .route("", web::get().to(Self::handle_get))
+            .route("", web::post().to(Self::handle_post))
+            .route("", web::delete().to(Self::handle_delete))
+    }
+
     /// Configure actix_web routes for the streamable HTTP server (static version)
     pub fn configure(service: Arc<Self>) -> impl FnOnce(&mut web::ServiceConfig) {
         move |cfg: &mut web::ServiceConfig| {
-            cfg.service(
-                web::scope("/")
-                    .app_data(Data::new(service.clone()))
-                    .wrap(middleware::NormalizePath::trim())
-                    .route("", web::get().to(Self::handle_get))
-                    .route("", web::post().to(Self::handle_post))
-                    .route("", web::delete().to(Self::handle_delete)),
-            );
+            cfg.service(Self::scope(service));
         }
     }
 
