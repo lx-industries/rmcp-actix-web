@@ -8,7 +8,7 @@ This crate provides actix-web-based transport implementations for the Model Cont
 
 `rmcp-actix-web` provides:
 - **SSE (Server-Sent Events) transport**: Real-time, unidirectional communication
-- **Streamable HTTP transport**: Bidirectional communication with session management  
+- **Streamable HTTP transport**: Bidirectional communication with session management
 - **Framework-level composition**: Mount MCP services at custom paths using actix-web Scope
 - **Full MCP compatibility**: Implements the complete MCP protocol specification
 - **RMCP ecosystem alignment**: APIs that follow RMCP patterns for maximum consistency
@@ -19,7 +19,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rmcp-actix-web = "0.3"
+rmcp-actix-web = "0.2"
 rmcp = "0.3"
 actix-web = "4"
 ```
@@ -30,20 +30,20 @@ Control which transports are compiled:
 
 ```toml
 # Default: both transports enabled
-rmcp-actix-web = "0.3"
+rmcp-actix-web = "0.2"
 
 # Only SSE transport
-rmcp-actix-web = { version = "0.3", default-features = false, features = ["transport-sse-server"] }
+rmcp-actix-web = { version = "0.2", default-features = false, features = ["transport-sse-server"] }
 
-# Only StreamableHttp transport  
-rmcp-actix-web = { version = "0.3", default-features = false, features = ["transport-streamable-http-server"] }
+# Only StreamableHttp transport
+rmcp-actix-web = { version = "0.2", default-features = false, features = ["transport-streamable-http-server"] }
 ```
 
 ## Compatibility Matrix
 
 | rmcp-actix-web | rmcp |
 |----------------|------|
-| 0.3.0          | 0.3.0|
+| 0.2.2          | 0.3.0|
 | 0.2.x          | 0.2.x|
 | 0.1.x          | 0.2.x|
 
@@ -58,10 +58,10 @@ use rmcp_actix_web::SseServer;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Start server with default configuration
     let server = SseServer::serve("127.0.0.1:8080".parse()?).await?;
-    
+
     // Attach your MCP service
     let ct = server.with_service(|| MyMcpService::new());
-    
+
     // Wait for shutdown
     ct.cancelled().await;
     Ok(())
@@ -92,7 +92,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let (sse_server, sse_scope) = SseServer::new(sse_config);
         let _ct = sse_server.with_service(|| MyMcpService::new());
 
-        // StreamableHttp service at custom path  
+        // StreamableHttp service at custom path
         let http_service = Arc::new(StreamableHttpService::new(
             || Ok(MyMcpService::new()),
             LocalSessionManager::default().into(),
@@ -110,7 +110,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .bind("127.0.0.1:8080")?
     .run()
     .await?;
-    
+
     Ok(())
 }
 ```
@@ -123,7 +123,7 @@ See the `examples/` directory for complete working examples:
 - `counter_sse.rs` - SSE server with a simple counter service
 - `counter_streamable_http.rs` - Streamable HTTP server example
 
-### Composition Examples  
+### Composition Examples
 - `composition_sse_example.rs` - SSE server with framework-level composition
 - `composition_streamable_http_example.rs` - StreamableHttp with custom mounting
 - `multi_service_example.rs` - Multiple MCP services with different transports
