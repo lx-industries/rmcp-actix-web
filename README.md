@@ -19,8 +19,8 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rmcp-actix-web = "0.1"
-rmcp = "0.2"
+rmcp-actix-web = "0.3"
+rmcp = "0.3"
 actix-web = "4"
 ```
 
@@ -30,14 +30,22 @@ Control which transports are compiled:
 
 ```toml
 # Default: both transports enabled
-rmcp-actix-web = "0.1"
+rmcp-actix-web = "0.3"
 
 # Only SSE transport
-rmcp-actix-web = { version = "0.1", default-features = false, features = ["transport-sse-server"] }
+rmcp-actix-web = { version = "0.3", default-features = false, features = ["transport-sse-server"] }
 
 # Only StreamableHttp transport  
-rmcp-actix-web = { version = "0.1", default-features = false, features = ["transport-streamable-http-server"] }
+rmcp-actix-web = { version = "0.3", default-features = false, features = ["transport-streamable-http-server"] }
 ```
+
+## Compatibility Matrix
+
+| rmcp-actix-web | rmcp |
+|----------------|------|
+| 0.3.0          | 0.3.0|
+| 0.2.x          | 0.2.x|
+| 0.1.x          | 0.2.x|
 
 ## Quick Start
 

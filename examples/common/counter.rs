@@ -10,7 +10,7 @@
 use std::sync::Arc;
 
 use rmcp::{
-    Error as McpError, RoleServer, ServerHandler,
+    ErrorData as McpError, RoleServer, ServerHandler,
     handler::server::{router::tool::ToolRouter, tool::Parameters},
     model::*,
     schemars,
