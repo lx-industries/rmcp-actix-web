@@ -33,6 +33,7 @@ workflow:
   - "tests/**/*"
   - "examples/**/*"
   - ".cargo/**/*"
+  - ".gitlab-ci.yml"
 
 # Cache configuration patterns for optimal build performance
 .cargo-registry-cache: &cargo-registry-cache
