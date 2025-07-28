@@ -1,3 +1,21 @@
+## [0.2.4](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.2.3...v0.2.4) (2025-07-28)
+
+
+### Bug Fixes
+
+* add .gitlab-ci.yml to rust-changes pattern ([c890b6f](https://gitlab.com/lx-industries/rmcp-actix-web/commit/c890b6fea33e2496352b9c66782898a0bad420ef))
+
+
+### Miscellaneous Chores
+
+* **deps:** update node.js to 079b6a6 ([e9c8dc6](https://gitlab.com/lx-industries/rmcp-actix-web/commit/e9c8dc6ec0ec5b1de18621616c7d7a93a3004a8d))
+* **deps:** update node.js to 37ff334 ([6ba8d7b](https://gitlab.com/lx-industries/rmcp-actix-web/commit/6ba8d7bb70ea15b2feb4c3a5656328c62d847ca5))
+* **deps:** update node.js to e515259 ([606eb33](https://gitlab.com/lx-industries/rmcp-actix-web/commit/606eb333b73ba3f73a3b4f17ab0b8fa612d318d1))
+* **deps:** update rust crate tokio to v1.47.0 ([d9dea1c](https://gitlab.com/lx-industries/rmcp-actix-web/commit/d9dea1cf77e76df4814d6b30000934ca06a4a159))
+* **deps:** update rust:1.88.0 docker digest to a5c5c4b ([edb3a60](https://gitlab.com/lx-industries/rmcp-actix-web/commit/edb3a60d89583db05bd8e61898c619d8b6bbc393))
+* **deps:** update rust:1.88.0 docker digest to af306cf ([38d0324](https://gitlab.com/lx-industries/rmcp-actix-web/commit/38d032423785dfb5bbba215ba697b33bc60eac32))
+* **deps:** update rust:1.88.0 docker digest to d8fb475 ([14d22f2](https://gitlab.com/lx-industries/rmcp-actix-web/commit/14d22f225924982ec3e17e7dab912c372eb8a171))
+
 ## [0.2.3](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.2.2...v0.2.3) (2025-07-21)
 
 
