@@ -1,3 +1,14 @@
+## [0.2.5](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.2.4...v0.2.5) (2025-08-04)
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate rmcp to v0.3.1 ([7838b24](https://gitlab.com/lx-industries/rmcp-actix-web/commit/7838b24e0011515f093c5f3d9a8cf9bc0f804f09))
+* **deps:** update rust crate rmcp to v0.3.2 ([175e47f](https://gitlab.com/lx-industries/rmcp-actix-web/commit/175e47f683afb959c2cc647d7849ad78297f72ca))
+* **deps:** update rust crate serde_json to v1.0.142 ([3ffe715](https://gitlab.com/lx-industries/rmcp-actix-web/commit/3ffe7155ac2ea7c5ddd3e196a917442ecb672a88))
+* **deps:** update rust crate tokio to v1.47.1 ([6e30b25](https://gitlab.com/lx-industries/rmcp-actix-web/commit/6e30b257050f404375990b8cef859a8c003be18d))
+* **deps:** update rust crate tokio-util to v0.7.16 ([7adddfa](https://gitlab.com/lx-industries/rmcp-actix-web/commit/7adddfad9e86556289c4021c84bd6d24923d824c))
+
 ## [0.2.4](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.2.3...v0.2.4) (2025-07-28)
 
 
