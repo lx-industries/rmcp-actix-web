@@ -1,3 +1,16 @@
+## [0.2.7](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.2.6...v0.2.7) (2025-08-18)
+
+
+### Miscellaneous Chores
+
+* **deps:** update node.js to 3266bc9 ([79bd416](https://gitlab.com/lx-industries/rmcp-actix-web/commit/79bd416b141258425a1b869e8ff1ea8d7937a15b))
+* **deps:** update node.js to 5cc5271 ([b16e53f](https://gitlab.com/lx-industries/rmcp-actix-web/commit/b16e53f4781122ce3033c77ffa6a7c475e2a53f5))
+* **deps:** update rust crate anyhow to v1.0.99 ([61979a0](https://gitlab.com/lx-industries/rmcp-actix-web/commit/61979a0343fdd3a35a9093eed8d1241740f3b638))
+* **deps:** update rust crate reqwest to v0.12.23 ([dbb4e82](https://gitlab.com/lx-industries/rmcp-actix-web/commit/dbb4e829e3c994dc36ea74861829e0829c1f5343))
+* **deps:** update rust:1.89.0 docker digest to 5fa1490 ([7d3ec02](https://gitlab.com/lx-industries/rmcp-actix-web/commit/7d3ec022fccd77eb6f7e24459a0dbe86769b3375))
+* **deps:** update rust:1.89.0 docker digest to ded0544 ([b2207d3](https://gitlab.com/lx-industries/rmcp-actix-web/commit/b2207d34980ac4149b8888ceba73fbc6c0318e37))
+* **deps:** update rust:1.89.0 docker digest to e090f7b ([4e9a3c9](https://gitlab.com/lx-industries/rmcp-actix-web/commit/4e9a3c95a44960d153d5e1b2e6e22dd32996afed))
+
 ## [0.2.6](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.2.5...v0.2.6) (2025-08-11)
 
 
