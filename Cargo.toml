@@ -16,7 +16,7 @@ transport-sse-server = ["rmcp/transport-sse-server"]
 transport-streamable-http-server = ["rmcp/transport-streamable-http-server"]
 
 [dependencies]
-rmcp = { version = "0.5.0", features = ["base64", "server"] }
+rmcp = { version = "0.6.0", features = ["base64", "server"] }
 actix-web = "4"
 actix-rt = "2"
 async-stream = "0.3"
@@ -38,7 +38,7 @@ tokio-stream = "0.1"
 http = "1"
 
 [dev-dependencies]
-rmcp = { version = "0.5.0", default-features = false, features = [
+rmcp = { version = "0.6.0", default-features = false, features = [
     "base64",
     "macros",
     "server",
