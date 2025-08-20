@@ -59,12 +59,12 @@ build:
     - <<: *cargo-registry-cache
     - <<: *cargo-build-cache
 
-# Test job - run unit tests only (excluding integration tests)
+# Test job - run all tests except JS/Python integration tests
 test:
   extends: .rust-template
   stage: test
   script:
-    - cargo test --verbose --lib --bins
+    - cargo test --verbose -- --skip test_with_js --skip test_with_python
   cache:
     - <<: *cargo-registry-cache
     - <<: *cargo-build-cache
@@ -165,7 +165,7 @@ integration-js:
     - node --version
     - npm --version
   script:
-    - cargo test --test test_with_js --verbose
+    - cargo test --package rmcp-actix-web --test test_with_js --verbose
   cache:
     - <<: *cargo-registry-cache
     - <<: *cargo-build-cache
@@ -186,7 +186,7 @@ integration-python:
     - python3 --version
     - uv --version
   script:
-    - cargo test --test test_with_python --verbose
+    - cargo test --package rmcp-actix-web --test test_with_python --verbose
   cache:
     - <<: *cargo-registry-cache
     - <<: *cargo-build-cache
