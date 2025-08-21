@@ -22,6 +22,18 @@ pub struct SubRequest {
     pub b: i32,
 }
 
+#[derive(Debug, serde::Serialize, schemars::JsonSchema)]
+pub struct CalculatorResult {
+    #[schemars(description = "the result of the operation")]
+    pub value: i32,
+}
+
+impl From<i32> for CalculatorResult {
+    fn from(value: i32) -> Self {
+        Self { value }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Calculator {
     tool_router: ToolRouter<Self>,
@@ -36,13 +48,19 @@ impl Calculator {
     }
 
     #[tool(description = "Calculate the sum of two numbers")]
-    fn sum(&self, Parameters(SumRequest { a, b }): Parameters<SumRequest>) -> String {
-        (a + b).to_string()
+    fn sum(
+        &self,
+        Parameters(SumRequest { a, b }): Parameters<SumRequest>,
+    ) -> Json<CalculatorResult> {
+        Json(CalculatorResult::from(a + b))
     }
 
     #[tool(description = "Calculate the difference of two numbers")]
-    fn sub(&self, Parameters(SubRequest { a, b }): Parameters<SubRequest>) -> Json<i32> {
-        Json(a - b)
+    fn sub(
+        &self,
+        Parameters(SubRequest { a, b }): Parameters<SubRequest>,
+    ) -> Json<CalculatorResult> {
+        Json(CalculatorResult::from(a - b))
     }
 }
 

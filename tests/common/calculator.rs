@@ -7,7 +7,7 @@
 
 #![allow(dead_code)]
 use rmcp::{
-    ServerHandler,
+    Json, ServerHandler,
     handler::server::{router::tool::ToolRouter, tool::Parameters},
     model::{ServerCapabilities, ServerInfo},
     schemars, tool, tool_handler, tool_router,
@@ -35,6 +35,18 @@ pub struct SubRequest {
     pub a: i32,
     #[schemars(description = "the right hand side number")]
     pub b: i32,
+}
+
+#[derive(Debug, serde::Serialize, schemars::JsonSchema)]
+pub struct CalculatorResult {
+    #[schemars(description = "the result of the operation")]
+    pub value: i32,
+}
+
+impl From<i32> for CalculatorResult {
+    fn from(value: i32) -> Self {
+        Self { value }
+    }
 }
 
 /// A simple calculator service for testing MCP tool functionality.
@@ -73,13 +85,19 @@ impl Default for Calculator {
 #[tool_router]
 impl Calculator {
     #[tool(description = "Calculate the sum of two numbers")]
-    fn sum(&self, Parameters(SumRequest { a, b }): Parameters<SumRequest>) -> String {
-        (a + b).to_string()
+    fn sum(
+        &self,
+        Parameters(SumRequest { a, b }): Parameters<SumRequest>,
+    ) -> Json<CalculatorResult> {
+        Json((a + b).into())
     }
 
     #[tool(description = "Calculate the sub of two numbers")]
-    fn sub(&self, Parameters(SubRequest { a, b }): Parameters<SubRequest>) -> String {
-        (a - b).to_string()
+    fn sub(
+        &self,
+        Parameters(SubRequest { a, b }): Parameters<SubRequest>,
+    ) -> Json<CalculatorResult> {
+        Json((a - b).into())
     }
 }
 
