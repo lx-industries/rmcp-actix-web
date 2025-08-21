@@ -80,7 +80,14 @@ use std::sync::Arc;
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    HttpServer::new(|| {
+    // Create StreamableHttp service OUTSIDE HttpServer::new() to share across workers
+    let http_service = Arc::new(StreamableHttpService::new(
+        || Ok(MyMcpService::new()),
+        LocalSessionManager::default().into(),
+        Default::default(),
+    ));
+
+    HttpServer::new(move || {
         // SSE service at custom path
         let sse_config = SseServerConfig {
             bind: "127.0.0.1:0".parse().unwrap(),
@@ -92,13 +99,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let (sse_server, sse_scope) = SseServer::new(sse_config);
         let _ct = sse_server.with_service(|| MyMcpService::new());
 
-        // StreamableHttp service at custom path
-        let http_service = Arc::new(StreamableHttpService::new(
-            || Ok(MyMcpService::new()),
-            LocalSessionManager::default().into(),
-            Default::default(),
-        ));
-        let http_scope = StreamableHttpService::scope(http_service);
+        // StreamableHttp service at custom path (cloned for each worker)
+        let http_scope = StreamableHttpService::scope(http_service.clone());
 
         App::new()
             // Your existing routes

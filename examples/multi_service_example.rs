@@ -134,6 +134,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bind_addr = "127.0.0.1:8080";
     tracing::info!("🚀 Starting Multi-Service MCP server on {}", bind_addr);
 
+    // === Create StreamableHttp Service OUTSIDE HttpServer::new() to share across workers ===
+    let http_service = Arc::new(StreamableHttpService::new(
+        || {
+            tracing::debug!("Creating new Calculator for StreamableHttp transport");
+            Ok(Calculator::new())
+        },
+        LocalSessionManager::default().into(),
+        StreamableHttpServerConfig {
+            stateful_mode: true,
+            sse_keep_alive: Some(std::time::Duration::from_secs(30)),
+        },
+    ));
+
     // === Main HTTP Server with All Services ===
     let server = HttpServer::new(move || {
         // Create services for each worker
@@ -153,20 +166,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Calculator::new()
         });
 
-        // === StreamableHttp Calculator Service ===
-        let http_service = Arc::new(StreamableHttpService::new(
-            || {
-                tracing::debug!("Creating new Calculator for StreamableHttp transport");
-                Ok(Calculator::new())
-            },
-            LocalSessionManager::default().into(),
-            StreamableHttpServerConfig {
-                stateful_mode: true,
-                sse_keep_alive: Some(std::time::Duration::from_secs(30)),
-            },
-        ));
-
-        let http_scope = StreamableHttpService::scope(http_service);
+        // === StreamableHttp Calculator Service (cloned for each worker) ===
+        let http_scope = StreamableHttpService::scope(http_service.clone());
 
         App::new()
             // === Middleware Stack ===

@@ -104,23 +104,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         bind_addr
     );
 
+    // Create the StreamableHttp service OUTSIDE HttpServer::new() to share across workers
+    let calculator_service = Arc::new(StreamableHttpService::new(
+        || {
+            tracing::debug!("Creating new Calculator instance for session");
+            Ok(Calculator::new())
+        },
+        LocalSessionManager::default().into(),
+        StreamableHttpServerConfig {
+            stateful_mode: true, // Enable session management
+            sse_keep_alive: Some(std::time::Duration::from_secs(30)),
+        },
+    ));
+
     // Create the main HTTP server with framework-level composition
     let server = HttpServer::new(move || {
-        // Create the StreamableHttp service for each worker
-        let calculator_service = Arc::new(StreamableHttpService::new(
-            || {
-                tracing::debug!("Creating new Calculator instance for session");
-                Ok(Calculator::new())
-            },
-            LocalSessionManager::default().into(),
-            StreamableHttpServerConfig {
-                stateful_mode: true, // Enable session management
-                sse_keep_alive: Some(std::time::Duration::from_secs(30)),
-            },
-        ));
-
-        // Get the composable scope for the calculator service
-        let calculator_scope = StreamableHttpService::scope(calculator_service);
+        // Get the composable scope for the calculator service (cloned for each worker)
+        let calculator_scope = StreamableHttpService::scope(calculator_service.clone());
 
         App::new()
             // Add comprehensive logging middleware
