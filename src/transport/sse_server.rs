@@ -159,7 +159,6 @@ async fn sse_handler(app_data: Data<AppData>, _req: HttpRequest) -> Result<HttpR
         .await
         .insert(session.clone(), from_client_tx);
 
-    let _session_id = session.clone();
     let stream = ReceiverStream::new(from_client_rx);
     let sink = PollSender::new(to_client_tx);
     let transport = SseServerTransport {
