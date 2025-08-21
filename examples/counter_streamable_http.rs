@@ -16,20 +16,20 @@
 //! ```bash
 //! curl -X POST http://localhost:8080/ \
 //!   -H "Content-Type: application/json" \
-//!   -H "X-Session-Id: test-session" \
+//!   -H "Mcp-Session-Id: test-session" \
 //!   -d '{"jsonrpc":"2.0","method":"counter/current","params":{},"id":1}'
 //! ```
 //!
 //! Resume the SSE stream for a session:
 //! ```bash
-//! curl -N -H "X-Session-Id: test-session" \
+//! curl -N -H "Mcp-Session-Id: test-session" \
 //!   -H "Accept: text/event-stream" \
 //!   http://localhost:8080/
 //! ```
 //!
 //! Close a session:
 //! ```bash
-//! curl -X DELETE -H "X-Session-Id: test-session" http://localhost:8080/
+//! curl -X DELETE -H "Mcp-Session-Id: test-session" http://localhost:8080/
 //! ```
 //!
 //! ## Architecture

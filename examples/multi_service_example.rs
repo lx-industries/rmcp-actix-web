@@ -86,7 +86,7 @@ async fn service_discovery() -> Result<HttpResponse> {
         },
         "usage": {
             "sse": "Connect to SSE endpoint for real-time streaming, POST messages to post endpoint",
-            "streamable_http": "POST initialize request to create session, then use X-Session-Id header"
+            "streamable_http": "POST initialize request to create session, then use Mcp-Session-Id header"
         }
     })))
 }
@@ -178,7 +178,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .add(("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS"))
                     .add((
                         "Access-Control-Allow-Headers",
-                        "Content-Type, Accept, X-Session-Id, Last-Event-ID",
+                        "Content-Type, Accept, Mcp-Session-Id, Last-Event-ID",
                     ))
                     .add(("X-Service-Type", "multi-mcp")),
             )

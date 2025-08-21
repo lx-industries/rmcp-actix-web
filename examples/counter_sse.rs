@@ -14,14 +14,14 @@
 //!
 //! In another terminal, connect to the SSE stream:
 //! ```bash
-//! curl -N -H "X-Session-Id: test-session" http://localhost:8000/sse
+//! curl -N -H "Mcp-Session-Id: test-session" http://localhost:8000/sse
 //! ```
 //!
 //! Send a request to get the counter value:
 //! ```bash
 //! curl -X POST http://localhost:8000/message \
 //!   -H "Content-Type: application/json" \
-//!   -H "X-Session-Id: test-session" \
+//!   -H "Mcp-Session-Id: test-session" \
 //!   -d '{"jsonrpc":"2.0","method":"counter/current","params":{},"id":1}'
 //! ```
 //!

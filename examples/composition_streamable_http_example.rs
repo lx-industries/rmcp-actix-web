@@ -28,7 +28,7 @@
 //! curl -X POST http://127.0.0.1:8080/api/v1/calculator/ \
 //!      -H "Content-Type: application/json" \
 //!      -H "Accept: application/json, text/event-stream" \
-//!      -H "X-Session-Id: <session_id>" \
+//!      -H "Mcp-Session-Id: <session_id>" \
 //!      -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
 //! ```
 
@@ -68,8 +68,8 @@ async fn api_info() -> Result<HttpResponse> {
         },
         "usage": {
             "initialize": "POST with initialize method to create session",
-            "requests": "POST with X-Session-Id header for subsequent requests",
-            "streaming": "GET with X-Session-Id header to receive streaming responses"
+            "requests": "POST with Mcp-Session-Id header for subsequent requests",
+            "streaming": "GET with Mcp-Session-Id header to receive streaming responses"
         }
     })))
 }
@@ -132,7 +132,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .add(("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS"))
                     .add((
                         "Access-Control-Allow-Headers",
-                        "Content-Type, Accept, X-Session-Id",
+                        "Content-Type, Accept, Mcp-Session-Id",
                     )),
             )
             // Add custom application routes
@@ -164,7 +164,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         bind_addr
     );
     tracing::info!(
-        "💡 Tip: Use stateful mode - create session with initialize, then use X-Session-Id header"
+        "💡 Tip: Use stateful mode - create session with initialize, then use Mcp-Session-Id header"
     );
     tracing::info!("Press Ctrl+C to stop the server");
 
