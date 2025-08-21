@@ -1,3 +1,18 @@
+## [0.2.8](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.2.7...v0.2.8) (2025-08-21)
+
+
+### Bug Fixes
+
+* **ci:** run all tests including integration tests ([cd07a8b](https://gitlab.com/lx-industries/rmcp-actix-web/commit/cd07a8b0262ca01b6953471e057f00e9465410a8)), closes [#16](https://gitlab.com/lx-industries/rmcp-actix-web/issues/16)
+* session handling inconsistencies in the examples ([9e737dc](https://gitlab.com/lx-industries/rmcp-actix-web/commit/9e737dc2c6d4c01ca939edfca2c6696fb561d692)), closes [#15](https://gitlab.com/lx-industries/rmcp-actix-web/issues/15)
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate rmcp to 0.6.0 ([31b7262](https://gitlab.com/lx-industries/rmcp-actix-web/commit/31b7262bec4ab9327b2a69fc174c0da7ff461509))
+* **deps:** update rust crate serde_json to v1.0.143 ([163a043](https://gitlab.com/lx-industries/rmcp-actix-web/commit/163a04381132c48b992d903a1e574b341e8f6bc9))
+* **deps:** update rust:1.89.0 docker digest to 6e6d04b ([892b8b5](https://gitlab.com/lx-industries/rmcp-actix-web/commit/892b8b508112767f39de9f3319c5fd94fdcdef2b))
+
 ## [0.2.7](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.2.6...v0.2.7) (2025-08-18)
 
 
