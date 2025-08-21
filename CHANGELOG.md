@@ -1,3 +1,11 @@
+## [0.2.9](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.2.8...v0.2.9) (2025-08-21)
+
+
+### Bug Fixes
+
+* calculator example/test return type ([1bea804](https://gitlab.com/lx-industries/rmcp-actix-web/commit/1bea8043edad2dc4cae0d173a6be58e014581dfa))
+* wrong HTTP header name for the MCP session id in the examples ([e01257a](https://gitlab.com/lx-industries/rmcp-actix-web/commit/e01257a111a6012c2f42cef359364b0281b462f6))
+
 ## [0.2.8](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.2.7...v0.2.8) (2025-08-21)
 
 
