@@ -1,3 +1,10 @@
+## [0.4.0](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.3.0...v0.4.0) (2025-08-28)
+
+
+### Features
+
+* update StreamableHttpService API and enable Clone pattern ([f85bcfc](https://gitlab.com/lx-industries/rmcp-actix-web/commit/f85bcfcf38b12ad3abfb7357688d0c9bd59da6ea))
+
 ## [0.3.0](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.2.9...v0.3.0) (2025-08-28)
 
 
