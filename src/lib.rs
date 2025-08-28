@@ -86,7 +86,7 @@
 //!
 //!     HttpServer::new(move || {
 //!         App::new()
-//!             .service(StreamableHttpService::scope(http_service.clone()))
+//!             .service(http_service.clone().scope())
 //!     })
 //!     .bind("127.0.0.1:8080")?
 //!     .run()
@@ -166,7 +166,7 @@
 //!
 //! // Mount at custom path using scope()
 //! let app = App::new()
-//!     .service(web::scope("/api/v1/calculator").service(StreamableHttpService::scope(http_service)));
+//!     .service(web::scope("/api/v1/calculator").service(http_service.scope()));
 //! ```
 //!
 //! ### Multi-Service Composition
@@ -200,7 +200,7 @@
 //! // Both services mount identically via scope()
 //! let app = App::new()
 //!     .service(web::scope("/api/sse").service(sse_service.scope()))
-//!     .service(web::scope("/api/http").service(StreamableHttpService::scope(http_service)));
+//!     .service(web::scope("/api/http").service(http_service.scope()));
 //! ```
 //!
 //! See the `examples/` directory for complete working examples of composition patterns.

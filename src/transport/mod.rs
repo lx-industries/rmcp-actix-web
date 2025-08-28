@@ -73,7 +73,7 @@
 //!     HttpServer::new(move || {
 //!         App::new()
 //!             .service(web::scope("/api/v1/sse").service(sse_service.clone().scope()))
-//!             .service(web::scope("/api/v1/http").service(StreamableHttpService::scope(http_service.clone())))
+//!             .service(web::scope("/api/v1/http").service(http_service.clone().scope()))
 //!     })
 //!     .bind("127.0.0.1:8080")?
 //!     .run()

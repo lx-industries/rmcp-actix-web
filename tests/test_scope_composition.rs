@@ -54,8 +54,7 @@ async fn test_streamable_http_service_scope_composition() {
 
     // Create app with scope mounted at custom path
     let app = test::init_service(
-        App::new()
-            .service(web::scope("/api/v2/mcp").service(StreamableHttpService::scope(http_service))),
+        App::new().service(web::scope("/api/v2/mcp").service(http_service.scope())),
     )
     .await;
 
@@ -104,7 +103,7 @@ async fn test_multiple_services_composition() {
     let app = test::init_service(
         App::new()
             .service(web::scope("/sse-calc").service(sse_service.scope()))
-            .service(web::scope("/http-calc").service(StreamableHttpService::scope(http_service))),
+            .service(web::scope("/http-calc").service(http_service.scope())),
     )
     .await;
 

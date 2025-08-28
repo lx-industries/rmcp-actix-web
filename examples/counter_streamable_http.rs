@@ -93,7 +93,7 @@ async fn main() -> anyhow::Result<()> {
             .wrap(middleware::Logger::default())
             .wrap(middleware::NormalizePath::trim())
             // Mount streamable HTTP service at root - endpoints will be /, GET/POST/DELETE
-            .service(StreamableHttpService::scope(http_service.clone()))
+            .service(http_service.clone().scope())
     })
     .bind(BIND_ADDRESS)?
     .run()

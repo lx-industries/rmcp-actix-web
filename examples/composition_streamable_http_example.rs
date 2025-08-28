@@ -117,37 +117,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // Create the main HTTP server with framework-level composition
-    let server = HttpServer::new(move || {
-        App::new()
-            // Add comprehensive logging middleware
-            .wrap(middleware::Logger::default())
-            .wrap(middleware::NormalizePath::trim())
-            // Add CORS middleware for web clients
-            .wrap(
-                middleware::DefaultHeaders::new()
-                    .add(("Access-Control-Allow-Origin", "*"))
-                    .add(("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS"))
-                    .add((
-                        "Access-Control-Allow-Headers",
-                        "Content-Type, Accept, Mcp-Session-Id",
-                    )),
-            )
-            // Add custom application routes
-            .route("/", web::get().to(root))
-            .route("/health", web::get().to(health_check))
-            .route("/api/info", web::get().to(api_info))
-            // Mount the MCP calculator service at a custom API path using scope()
-            .service(
-                web::scope("/api").service(
-                    web::scope("/v1").service(
-                        web::scope("/calculator")
-                            .service(StreamableHttpService::scope(calculator_service.clone())),
-                    ),
-                ),
-            )
-    })
-    .bind(bind_addr)?
-    .run();
+    let server =
+        HttpServer::new(move || {
+            App::new()
+                // Add comprehensive logging middleware
+                .wrap(middleware::Logger::default())
+                .wrap(middleware::NormalizePath::trim())
+                // Add CORS middleware for web clients
+                .wrap(
+                    middleware::DefaultHeaders::new()
+                        .add(("Access-Control-Allow-Origin", "*"))
+                        .add(("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS"))
+                        .add((
+                            "Access-Control-Allow-Headers",
+                            "Content-Type, Accept, Mcp-Session-Id",
+                        )),
+                )
+                // Add custom application routes
+                .route("/", web::get().to(root))
+                .route("/health", web::get().to(health_check))
+                .route("/api/info", web::get().to(api_info))
+                // Mount the MCP calculator service at a custom API path using scope()
+                .service(web::scope("/api").service(web::scope("/v1").service(
+                    web::scope("/calculator").service(calculator_service.clone().scope()),
+                )))
+        })
+        .bind(bind_addr)?
+        .run();
 
     tracing::info!("🚀 Server started successfully!");
     tracing::info!("📊 Health check: http://{}/health", bind_addr);

@@ -160,48 +160,45 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // === Main HTTP Server with All Services ===
-    let server =
-        HttpServer::new(move || {
-            App::new()
-                // === Middleware Stack ===
-                .wrap(middleware::Logger::default())
-                .wrap(middleware::NormalizePath::trim())
-                .wrap(
-                    middleware::DefaultHeaders::new()
-                        .add(("Access-Control-Allow-Origin", "*"))
-                        .add(("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS"))
-                        .add((
-                            "Access-Control-Allow-Headers",
-                            "Content-Type, Accept, Mcp-Session-Id, Last-Event-ID",
-                        ))
-                        .add(("X-Service-Type", "multi-mcp")),
-                )
-                // === Application Routes ===
-                .route("/", web::get().to(root))
-                .route("/health", web::get().to(health_check))
-                // === API Structure ===
-                .service(
-                    web::scope("/api")
-                        // Service discovery
-                        .route("/services", web::get().to(service_discovery))
-                        // API v1 with different transport services
-                        .service(
-                            web::scope("/v1")
-                                // SSE-based calculator using scope()
-                                .service(web::scope("/sse").service(
-                                    web::scope("/calculator").service(sse_service.clone().scope()),
-                                ))
-                                // StreamableHttp-based calculator using scope()
-                                .service(web::scope("/http").service(
-                                    web::scope("/calculator").service(
-                                        StreamableHttpService::scope(http_service.clone()),
-                                    ),
-                                )),
-                        ),
-                )
-        })
-        .bind(bind_addr)?
-        .run();
+    let server = HttpServer::new(move || {
+        App::new()
+            // === Middleware Stack ===
+            .wrap(middleware::Logger::default())
+            .wrap(middleware::NormalizePath::trim())
+            .wrap(
+                middleware::DefaultHeaders::new()
+                    .add(("Access-Control-Allow-Origin", "*"))
+                    .add(("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS"))
+                    .add((
+                        "Access-Control-Allow-Headers",
+                        "Content-Type, Accept, Mcp-Session-Id, Last-Event-ID",
+                    ))
+                    .add(("X-Service-Type", "multi-mcp")),
+            )
+            // === Application Routes ===
+            .route("/", web::get().to(root))
+            .route("/health", web::get().to(health_check))
+            // === API Structure ===
+            .service(
+                web::scope("/api")
+                    // Service discovery
+                    .route("/services", web::get().to(service_discovery))
+                    // API v1 with different transport services
+                    .service(
+                        web::scope("/v1")
+                            // SSE-based calculator using scope()
+                            .service(web::scope("/sse").service(
+                                web::scope("/calculator").service(sse_service.clone().scope()),
+                            ))
+                            // StreamableHttp-based calculator using scope()
+                            .service(web::scope("/http").service(
+                                web::scope("/calculator").service(http_service.clone().scope()),
+                            )),
+                    ),
+            )
+    })
+    .bind(bind_addr)?
+    .run();
 
     // === Startup Information ===
     tracing::info!("✅ Multi-Service MCP Server started successfully!");

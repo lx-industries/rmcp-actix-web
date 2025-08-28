@@ -108,7 +108,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .route("/health", web::get().to(|| async { "OK" }))
             // Mount MCP services at custom paths
             .service(web::scope("/api/v1/sse-calc").service(sse_service.clone().scope()))
-            .service(web::scope("/api/v1/http-calc").service(StreamableHttpService::scope(http_service.clone())))
+            .service(web::scope("/api/v1/http-calc").service(http_service.clone().scope()))
     })
     .bind("127.0.0.1:8080")?
     .run()

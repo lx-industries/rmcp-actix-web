@@ -49,7 +49,7 @@
 //!
 //!     HttpServer::new(move || {
 //!         App::new()
-//!             .service(StreamableHttpService::scope(service.clone()))
+//!             .service(service.clone().scope())
 //!     })
 //!     .bind("127.0.0.1:8080")?
 //!     .run()
@@ -156,7 +156,7 @@ impl Default for StreamableHttpServerConfig {
 ///
 ///     HttpServer::new(move || {
 ///         App::new()
-///             .service(web::scope("/mcp").service(StreamableHttpService::scope(service.clone())))
+///             .service(web::scope("/mcp").service(service.clone().scope()))
 ///     })
 ///     .bind("127.0.0.1:8080")?
 ///     .run()
@@ -273,7 +273,7 @@ where
     ///             .build(),
     ///     );
     ///     
-    ///     let scope = StreamableHttpService::scope(service);
+    ///     let scope = service.scope();
     ///     
     ///     // Mount into existing app at a custom path
     ///     let app = App::new()
@@ -282,7 +282,7 @@ where
     ///     Ok(())
     /// }
     /// ```
-    pub fn scope(
+    pub fn scope_static(
         service: Arc<Self>,
     ) -> Scope<
         impl actix_web::dev::ServiceFactory<
@@ -301,10 +301,58 @@ where
             .route("", web::delete().to(Self::handle_delete))
     }
 
+    /// Creates a scope configured with this service (instance method for consistency).
+    ///
+    /// This method provides the same functionality as the static `scope()` method but uses
+    /// an instance method pattern for consistency with similar patterns in the codebase.
+    ///
+    /// # Returns
+    ///
+    /// Returns an actix-web `Scope` configured with the HTTP routes
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use rmcp_actix_web::StreamableHttpService;
+    /// use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
+    /// use actix_web::{App, web};
+    /// use std::sync::Arc;
+    ///
+    /// # use rmcp::{ServerHandler, model::ServerInfo};
+    /// # struct MyService;
+    /// # impl ServerHandler for MyService {
+    /// #     fn get_info(&self) -> ServerInfo { ServerInfo::default() }
+    /// # }
+    /// # impl MyService { fn new() -> Self { Self } }
+    /// let service = Arc::new(
+    ///     StreamableHttpService::builder()
+    ///         .service_factory(Arc::new(|| Ok(MyService::new())))
+    ///         .session_manager(Arc::new(LocalSessionManager::default()))
+    ///         .build(),
+    /// );
+    ///
+    /// // Instance method - consistent pattern
+    /// let app = App::new()
+    ///     .service(web::scope("/api/v1/mcp").service(service.scope()));
+    /// ```
+    pub fn scope(
+        self: Arc<Self>,
+    ) -> Scope<
+        impl actix_web::dev::ServiceFactory<
+            actix_web::dev::ServiceRequest,
+            Config = (),
+            Response = actix_web::dev::ServiceResponse,
+            Error = actix_web::Error,
+            InitError = (),
+        >,
+    > {
+        Self::scope_static(self)
+    }
+
     /// Configure actix_web routes for the streamable HTTP server (static version)
     pub fn configure(service: Arc<Self>) -> impl FnOnce(&mut web::ServiceConfig) {
         move |cfg: &mut web::ServiceConfig| {
-            cfg.service(Self::scope(service));
+            cfg.service(Self::scope_static(service));
         }
     }
 

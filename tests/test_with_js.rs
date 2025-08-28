@@ -104,10 +104,7 @@ async fn test_with_js_streamable_http_client() -> anyhow::Result<()> {
     let server = actix_web::HttpServer::new(move || {
         actix_web::App::new()
             .wrap(actix_web::middleware::Logger::default())
-            .service(
-                actix_web::web::scope("/mcp")
-                    .service(StreamableHttpService::scope(http_service.clone())),
-            )
+            .service(actix_web::web::scope("/mcp").service(http_service.clone().scope()))
     })
     .bind(STREAMABLE_HTTP_BIND_ADDRESS)?
     .run();
