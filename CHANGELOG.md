@@ -1,3 +1,16 @@
+## [0.3.0](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.2.9...v0.3.0) (2025-08-28)
+
+
+### Features
+
+* add instance method scope() to StreamableHttpService ([5c5eeed](https://gitlab.com/lx-industries/rmcp-actix-web/commit/5c5eeed9903a75b465f2315e1aa76ea4fa31ae77)), closes [#19](https://gitlab.com/lx-industries/rmcp-actix-web/issues/19)
+* implement unified builder pattern for transport services ([fbd0121](https://gitlab.com/lx-industries/rmcp-actix-web/commit/fbd0121af8aa8c867d754ea6ace959b93831a61e))
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust:1.89.0 docker digest to 26318ae ([b4def23](https://gitlab.com/lx-industries/rmcp-actix-web/commit/b4def23125a3c7db308c1d7258970ce59a072964))
+
 ## [0.2.9](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.2.8...v0.2.9) (2025-08-21)
 
 
