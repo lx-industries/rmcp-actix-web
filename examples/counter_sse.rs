@@ -2,7 +2,7 @@
 //!
 //! This example demonstrates how to use the SSE transport to create an MCP server
 //! that streams updates to clients. The example implements a simple counter service
-//! that increments every second.
+//! that increments every second using the unified builder pattern.
 //!
 //! ## Running the Example
 //!
@@ -33,18 +33,21 @@
 //!
 //! Clients must provide the same session ID in both connections.
 
-use rmcp_actix_web::{SseServer, SseServerConfig};
+use actix_web::{App, HttpServer, middleware};
+use rmcp_actix_web::SseService;
+use std::{sync::Arc, time::Duration};
 use tracing_subscriber::{
     layer::SubscriberExt,
     util::SubscriberInitExt,
     {self},
 };
+
 mod common;
 use common::counter::Counter;
 
 const BIND_ADDRESS: &str = "127.0.0.1:8000";
 
-/// Example SSE server using rmcp-actix-web.
+/// Example SSE server using rmcp-actix-web with unified builder pattern.
 ///
 /// Important: This uses `#[actix_web::main]` instead of `#[tokio::main]`
 /// because actix-web requires its own runtime configuration.
@@ -59,39 +62,32 @@ async fn main() -> anyhow::Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    // Configure the SSE server
-    let config = SseServerConfig {
-        bind: BIND_ADDRESS.parse()?,
-        sse_path: "/sse".to_string(), // Endpoint for SSE connections
-        post_path: "/message".to_string(), // Endpoint for client messages
-        ct: tokio_util::sync::CancellationToken::new(),
-        sse_keep_alive: None, // Use default keep-alive interval
-    };
+    // Create SSE service using builder pattern
+    let sse_service = SseService::builder()
+        .service_factory(Arc::new(|| Ok(Counter::new()))
+            as Arc<dyn Fn() -> Result<Counter, std::io::Error> + Send + Sync>) // Create new Counter for each session
+        .sse_path("/sse".to_string()) // SSE endpoint path
+        .post_path("/message".to_string()) // Message endpoint path
+        .sse_keep_alive(Duration::from_secs(30)) // Keep-alive pings every 30 seconds
+        .build();
 
-    // Keep a reference to the cancellation token for shutdown
-    let ct_signal = config.ct.clone();
-
-    // Start the SSE server with our configuration
-    let sse_server = SseServer::serve_with_config(config).await?;
-    let bind_addr = sse_server.config.bind;
-
-    // Attach the Counter service - a new instance is created for each client
-    let ct = sse_server.with_service(Counter::new);
-
-    println!("\n🚀 SSE Server (actix-web) running at http://{bind_addr}");
-    println!("📡 SSE endpoint: http://{bind_addr}/sse");
-    println!("📮 Message endpoint: http://{bind_addr}/message");
+    println!("\n🚀 SSE Server (actix-web) running at http://{BIND_ADDRESS}");
+    println!("📡 SSE endpoint: http://{BIND_ADDRESS}/sse");
+    println!("📮 Message endpoint: http://{BIND_ADDRESS}/message");
     println!("\nPress Ctrl+C to stop the server\n");
 
-    // Set up Ctrl-C handler
-    tokio::spawn(async move {
-        tokio::signal::ctrl_c().await.ok();
-        println!("\n⏹️  Shutting down...");
-        ct_signal.cancel();
-    });
+    // Start the HTTP server with the SSE service mounted
+    HttpServer::new(move || {
+        App::new()
+            .wrap(middleware::Logger::default())
+            .wrap(middleware::NormalizePath::trim())
+            // Mount SSE service at root - endpoints will be /sse and /message
+            .service(sse_service.clone().scope())
+    })
+    .bind(BIND_ADDRESS)?
+    .run()
+    .await?;
 
-    // Wait for cancellation
-    ct.cancelled().await;
     println!("✅ Server stopped");
     Ok(())
 }

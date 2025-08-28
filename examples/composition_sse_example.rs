@@ -1,13 +1,15 @@
-//! SSE Server Composition Example
+//! SSE Service Composition Example
 //!
 //! This example demonstrates how to use framework-level composition to mount
-//! SSE MCP services at custom paths within an existing actix-web application.
+//! SSE MCP services at custom paths within an existing actix-web application
+//! using the unified builder pattern.
 //!
 //! ## Key Features Demonstrated
 //!
-//! - Using `SseServer::new()` to get a composable scope
-//! - Mounting MCP services at custom paths
+//! - Using `SseService::builder()` to configure the service
+//! - Mounting MCP services at custom paths using `.scope()`
 //! - Integration with existing actix-web middleware and routes
+//! - Unified builder pattern consistent with StreamableHttpService
 //!
 //! ## Usage
 //!
@@ -18,17 +20,19 @@
 //! Then test with curl:
 //! ```bash
 //! # Connect to SSE endpoint at custom path
-//! curl -N http://127.0.0.1:8080/api/v1/mcp/sse
+//! curl -N -H "Mcp-Session-Id: test-session" \
+//!      http://127.0.0.1:8080/api/v1/mcp/sse
 //!
 //! # Send a message (in another terminal)
-//! curl -X POST http://127.0.0.1:8080/api/v1/mcp/message?sessionId=<session_id> \
+//! curl -X POST http://127.0.0.1:8080/api/v1/mcp/message \
 //!      -H "Content-Type: application/json" \
+//!      -H "Mcp-Session-Id: test-session" \
 //!      -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
 //! ```
 
-use actix_web::{App, HttpResponse, HttpServer, Result, web};
-use rmcp_actix_web::{SseServer, SseServerConfig};
-use tokio_util::sync::CancellationToken;
+use actix_web::{App, HttpResponse, HttpServer, Result, middleware, web};
+use rmcp_actix_web::SseService;
+use std::{sync::Arc, time::Duration};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod common;
@@ -70,44 +74,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bind_addr = "127.0.0.1:8080";
     tracing::info!("Starting SSE composition example server on {}", bind_addr);
 
-    // Create SSE server configuration with custom paths
-    let _sse_config = SseServerConfig {
-        bind: bind_addr.parse()?,
-        sse_path: "/sse".to_string(),
-        post_path: "/message".to_string(),
-        ct: CancellationToken::new(),
-        sse_keep_alive: Some(std::time::Duration::from_secs(30)),
-    };
+    // Create SSE service using builder pattern with custom paths
+    let sse_service = SseService::builder()
+        .service_factory(Arc::new(|| Ok(Calculator::new()))) // Create new Calculator for each session
+        .sse_path("/sse".to_string()) // Custom SSE endpoint path
+        .post_path("/message".to_string()) // Custom message endpoint path
+        .sse_keep_alive(Duration::from_secs(30)) // Keep-alive pings every 30 seconds
+        .build();
 
-    // Start the SSE server directly since we need custom composition
+    // Start the HTTP server with framework-level composition
     let server = HttpServer::new(move || {
-        // Create a new SSE server scope for each worker
-        let sse_config = SseServerConfig {
-            bind: "127.0.0.1:0".parse().unwrap(), // Will be ignored since we're using manual binding
-            sse_path: "/sse".to_string(),
-            post_path: "/message".to_string(),
-            ct: CancellationToken::new(),
-            sse_keep_alive: Some(std::time::Duration::from_secs(30)),
-        };
-
-        let (sse_server, mcp_scope) = SseServer::new(sse_config);
-
-        // Start the MCP service for this worker
-        let _ct = sse_server.with_service(Calculator::new);
-
         App::new()
             // Add logging middleware
-            .wrap(actix_web::middleware::Logger::default())
+            .wrap(middleware::Logger::default())
+            .wrap(middleware::NormalizePath::trim())
             // Add custom application routes
             .route("/", web::get().to(root))
             .route("/health", web::get().to(health_check))
-            // Mount the MCP service at a custom API path
-            .service(
-                web::scope("/api")
-                    .service(web::scope("/v1").service(web::scope("/mcp").service(mcp_scope))),
-            )
-        // You could add more API versions here
-        // .service(web::scope("/api/v2").service(...))
+            // Mount the MCP service at a custom API path using scope()
+            .service(web::scope("/api").service(
+                web::scope("/v1").service(web::scope("/mcp").service(sse_service.clone().scope())),
+            ))
     })
     .bind(bind_addr)?
     .run();

@@ -16,7 +16,7 @@
 //! - Simple integration with existing web infrastructure
 //! - Compatibility with browsers and HTTP/1.1 proxies
 //!
-//! See [`SseServer`][crate::SseServer] for the main implementation.
+//! See [`SseService`][crate::SseService] for the main implementation.
 //!
 //! ### Streamable HTTP
 //!
@@ -33,16 +33,17 @@
 //!
 //! ## Framework-Level Composition
 //!
-//! Both transports support framework-level composition for mounting at custom paths:
+//! Both transports support framework-level composition for mounting at custom paths
+//! using a unified builder pattern:
 //!
 //! ```rust,no_run
 //! use actix_web::{App, HttpServer, web};
-//! use rmcp_actix_web::{SseServer, SseServerConfig, StreamableHttpService};
+//! use rmcp_actix_web::{SseService, StreamableHttpService};
 //! use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
-//! use tokio_util::sync::CancellationToken;
-//! use std::sync::Arc;
+//! use std::{sync::Arc, time::Duration};
 //!
 //! # use rmcp::{ServerHandler, model::ServerInfo};
+//! # #[derive(Clone)]
 //! # struct MyService;
 //! # impl ServerHandler for MyService {
 //! #     fn get_info(&self) -> ServerInfo { ServerInfo::default() }
@@ -50,48 +51,29 @@
 //! # impl MyService { fn new() -> Self { Self } }
 //! #[actix_web::main]
 //! async fn main() -> std::io::Result<()> {
-//!     // SSE server composition
-//!     let sse_config = SseServerConfig {
-//!         bind: "127.0.0.1:0".parse().unwrap(),
-//!         sse_path: "/sse".to_string(),
-//!         post_path: "/message".to_string(),
-//!         ct: CancellationToken::new(),
-//!         sse_keep_alive: None,
-//!     };
-//!     let (sse_server, sse_scope) = SseServer::new(sse_config);
-//!     let _ct = sse_server.with_service(|| MyService::new());
+//!     // SSE service with builder pattern
+//!     let sse_service = SseService::builder()
+//!         .service_factory(Arc::new(|| Ok(MyService::new())))
+//!         .sse_path("/events".to_string())
+//!         .post_path("/messages".to_string())
+//!         .sse_keep_alive(Duration::from_secs(30))
+//!         .build();
 //!     
-//!     // StreamableHttp service composition
-//!     let http_service = Arc::new(StreamableHttpService::new(
-//!         || Ok(MyService::new()),
-//!         LocalSessionManager::default().into(),
-//!         Default::default(),
-//!     ));
-//!     let http_scope = StreamableHttpService::scope(http_service);
+//!     // StreamableHttp service with builder pattern
+//!     let http_service = Arc::new(
+//!         StreamableHttpService::builder()
+//!             .service_factory(Arc::new(|| Ok(MyService::new())))
+//!             .session_manager(Arc::new(LocalSessionManager::default()))
+//!             .stateful_mode(true)
+//!             .sse_keep_alive(Duration::from_secs(30))
+//!             .build(),
+//!     );
 //!     
-//!     // Compose both in one application
+//!     // Both services mount identically via scope()
 //!     HttpServer::new(move || {
-//!         // Create new scopes for each worker
-//!         let sse_config = SseServerConfig {
-//!             bind: "127.0.0.1:0".parse().unwrap(),
-//!             sse_path: "/sse".to_string(),
-//!             post_path: "/message".to_string(),
-//!             ct: CancellationToken::new(),
-//!             sse_keep_alive: None,
-//!         };
-//!         let (sse_server, sse_scope) = SseServer::new(sse_config);
-//!         let _ct = sse_server.with_service(|| MyService::new());
-//!         
-//!         let http_service = Arc::new(StreamableHttpService::new(
-//!             || Ok(MyService::new()),
-//!             LocalSessionManager::default().into(),
-//!             Default::default(),
-//!         ));
-//!         let http_scope = StreamableHttpService::scope(http_service);
-//!         
 //!         App::new()
-//!             .service(web::scope("/api/v1/sse").service(sse_scope))
-//!             .service(web::scope("/api/v1/http").service(http_scope))
+//!             .service(web::scope("/api/v1/sse").service(sse_service.clone().scope()))
+//!             .service(web::scope("/api/v1/http").service(StreamableHttpService::scope(http_service.clone())))
 //!     })
 //!     .bind("127.0.0.1:8080")?
 //!     .run()

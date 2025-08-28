@@ -1,12 +1,14 @@
 //! Multi-Service Composition Example
 //!
 //! This example demonstrates how to compose multiple MCP services using both
-//! SSE and StreamableHttp transports within a single actix-web application.
+//! SSE and StreamableHttp transports within a single actix-web application
+//! using the unified builder pattern.
 //!
 //! ## Key Features Demonstrated
 //!
 //! - Multiple MCP services running simultaneously
 //! - Different transport types (SSE and StreamableHttp) in one app
+//! - Unified builder pattern for both service types
 //! - API versioning with scope composition
 //! - Service discovery endpoints
 //! - Middleware integration and CORS handling
@@ -29,7 +31,8 @@
 //! curl http://127.0.0.1:8080/api/services
 //!
 //! # Test SSE calculator
-//! curl -N http://127.0.0.1:8080/api/v1/sse/calculator/sse
+//! curl -N -H "Mcp-Session-Id: test-session" \
+//!      http://127.0.0.1:8080/api/v1/sse/calculator/sse
 //!
 //! # Test StreamableHttp calculator (initialize session)
 //! curl -X POST http://127.0.0.1:8080/api/v1/http/calculator/ \
@@ -38,14 +41,10 @@
 //!      -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"curl","version":"1.0"}}}'
 //! ```
 
-use std::sync::Arc;
-
-use actix_web::{App, HttpResponse, HttpServer, Result, web};
-use rmcp::transport::{
-    StreamableHttpServerConfig, streamable_http_server::session::local::LocalSessionManager,
-};
-use rmcp_actix_web::{SseServer, SseServerConfig, StreamableHttpService};
-use tokio_util::sync::CancellationToken;
+use actix_web::{App, HttpResponse, HttpServer, Result, middleware, web};
+use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
+use rmcp_actix_web::{SseService, StreamableHttpService};
+use std::{sync::Arc, time::Duration};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod common;
@@ -134,84 +133,75 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bind_addr = "127.0.0.1:8080";
     tracing::info!("🚀 Starting Multi-Service MCP server on {}", bind_addr);
 
-    // === Create StreamableHttp Service OUTSIDE HttpServer::new() to share across workers ===
-    let http_service = Arc::new(StreamableHttpService::new(
-        || {
-            tracing::debug!("Creating new Calculator for StreamableHttp transport");
+    // === Create Services using Unified Builder Pattern ===
+
+    // SSE Calculator Service
+    let sse_service = SseService::builder()
+        .service_factory(Arc::new(|| {
+            tracing::debug!("Creating new Calculator for SSE transport");
             Ok(Calculator::new())
-        },
-        LocalSessionManager::default().into(),
-        StreamableHttpServerConfig {
-            stateful_mode: true,
-            sse_keep_alive: Some(std::time::Duration::from_secs(30)),
-        },
-    ));
+        }))
+        .sse_path("/sse".to_string()) // Custom SSE endpoint
+        .post_path("/message".to_string()) // Custom message endpoint
+        .sse_keep_alive(Duration::from_secs(30)) // Keep-alive pings
+        .build();
+
+    // StreamableHttp Calculator Service - wrap in Arc since it can't be cloned
+    let http_service = Arc::new(
+        StreamableHttpService::builder()
+            .service_factory(Arc::new(|| {
+                tracing::debug!("Creating new Calculator for StreamableHttp transport");
+                Ok(Calculator::new())
+            }))
+            .session_manager(Arc::new(LocalSessionManager::default())) // Session management
+            .stateful_mode(true) // Enable sessions
+            .sse_keep_alive(Duration::from_secs(30)) // Keep-alive pings
+            .build(),
+    );
 
     // === Main HTTP Server with All Services ===
-    let server = HttpServer::new(move || {
-        // Create services for each worker
-
-        // === SSE Calculator Service ===
-        let sse_config = SseServerConfig {
-            bind: "127.0.0.1:0".parse().unwrap(), // Will be ignored since we're using manual binding
-            sse_path: "/sse".to_string(),
-            post_path: "/message".to_string(),
-            ct: CancellationToken::new(),
-            sse_keep_alive: Some(std::time::Duration::from_secs(30)),
-        };
-
-        let (sse_server, sse_scope) = SseServer::new(sse_config);
-        let _sse_ct = sse_server.with_service(|| {
-            tracing::debug!("Creating new Calculator for SSE transport");
-            Calculator::new()
-        });
-
-        // === StreamableHttp Calculator Service (cloned for each worker) ===
-        let http_scope = StreamableHttpService::scope(http_service.clone());
-
-        App::new()
-            // === Middleware Stack ===
-            .wrap(actix_web::middleware::Logger::default())
-            .wrap(
-                actix_web::middleware::DefaultHeaders::new()
-                    .add(("Access-Control-Allow-Origin", "*"))
-                    .add(("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS"))
-                    .add((
-                        "Access-Control-Allow-Headers",
-                        "Content-Type, Accept, Mcp-Session-Id, Last-Event-ID",
-                    ))
-                    .add(("X-Service-Type", "multi-mcp")),
-            )
-            // === Application Routes ===
-            .route("/", web::get().to(root))
-            .route("/health", web::get().to(health_check))
-            // === API Structure ===
-            .service(
-                web::scope("/api")
-                    // Service discovery
-                    .route("/services", web::get().to(service_discovery))
-                    // API v1 with different transport services
-                    .service(
-                        web::scope("/v1")
-                            // SSE-based calculator
-                            .service(
-                                web::scope("/sse")
-                                    .service(web::scope("/calculator").service(sse_scope)),
-                            )
-                            // StreamableHttp-based calculator
-                            .service(
-                                web::scope("/http")
-                                    .service(web::scope("/calculator").service(http_scope)),
-                            ),
-                    ), // Future API versions could be added here:
-                       // .service(
-                       //     web::scope("/v2")
-                       //         .service(...)
-                       // )
-            )
-    })
-    .bind(bind_addr)?
-    .run();
+    let server =
+        HttpServer::new(move || {
+            App::new()
+                // === Middleware Stack ===
+                .wrap(middleware::Logger::default())
+                .wrap(middleware::NormalizePath::trim())
+                .wrap(
+                    middleware::DefaultHeaders::new()
+                        .add(("Access-Control-Allow-Origin", "*"))
+                        .add(("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS"))
+                        .add((
+                            "Access-Control-Allow-Headers",
+                            "Content-Type, Accept, Mcp-Session-Id, Last-Event-ID",
+                        ))
+                        .add(("X-Service-Type", "multi-mcp")),
+                )
+                // === Application Routes ===
+                .route("/", web::get().to(root))
+                .route("/health", web::get().to(health_check))
+                // === API Structure ===
+                .service(
+                    web::scope("/api")
+                        // Service discovery
+                        .route("/services", web::get().to(service_discovery))
+                        // API v1 with different transport services
+                        .service(
+                            web::scope("/v1")
+                                // SSE-based calculator using scope()
+                                .service(web::scope("/sse").service(
+                                    web::scope("/calculator").service(sse_service.clone().scope()),
+                                ))
+                                // StreamableHttp-based calculator using scope()
+                                .service(web::scope("/http").service(
+                                    web::scope("/calculator").service(
+                                        StreamableHttpService::scope(http_service.clone()),
+                                    ),
+                                )),
+                        ),
+                )
+        })
+        .bind(bind_addr)?
+        .run();
 
     // === Startup Information ===
     tracing::info!("✅ Multi-Service MCP Server started successfully!");

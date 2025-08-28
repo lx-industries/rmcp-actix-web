@@ -1,8 +1,9 @@
 //! Streamable HTTP transport example.
 //!
 //! This example demonstrates how to use the bidirectional streamable HTTP transport
-//! with session management. The example implements the same counter service as the
-//! SSE example but using the more feature-rich streamable HTTP transport.
+//! with session management using the unified builder pattern. The example
+//! implements the same counter service as the SSE example but using the more
+//! feature-rich streamable HTTP transport.
 //!
 //! ## Running the Example
 //!
@@ -40,58 +41,64 @@
 //! - Support for resuming connections
 //! - Efficient routing of messages
 
-mod common;
-use std::sync::Arc;
-
 use actix_web::{App, HttpServer, middleware};
-use common::counter::Counter;
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 use rmcp_actix_web::StreamableHttpService;
+use std::{sync::Arc, time::Duration};
+use tracing_subscriber::{
+    layer::SubscriberExt,
+    util::SubscriberInitExt,
+    {self},
+};
 
-/// Example streamable HTTP server using rmcp-actix-web.
+mod common;
+use common::counter::Counter;
+
+const BIND_ADDRESS: &str = "127.0.0.1:8080";
+
+/// Example streamable HTTP server using rmcp-actix-web with unified builder pattern.
 ///
 /// Important: This uses `#[actix_web::main]` instead of `#[tokio::main]`
 /// because actix-web requires its own runtime configuration.
 #[actix_web::main]
 async fn main() -> anyhow::Result<()> {
-    tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::DEBUG)
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+    // Initialize tracing for debug output
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "debug".to_string().into()),
+        )
+        .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let bind_addr = "127.0.0.1:8080";
+    // Create streamable HTTP service using builder pattern
+    let http_service = Arc::new(
+        StreamableHttpService::builder()
+            .service_factory(Arc::new(|| Ok(Counter::new()))) // Create new Counter for each session
+            .session_manager(Arc::new(LocalSessionManager::default())) // Local session management
+            .stateful_mode(true) // Enable stateful session management
+            .sse_keep_alive(Duration::from_secs(30)) // Keep-alive pings every 30 seconds
+            .build(),
+    );
 
-    // Create the streamable HTTP service using rmcp-actix-web
-    // This service provides bidirectional communication with session management:
-    // - Factory function creates a new Counter instance for each session
-    // - LocalSessionManager tracks client sessions in memory
-    // - Default config enables stateful mode with standard settings
-    let service = Arc::new(StreamableHttpService::new(
-        || Ok(Counter::new()),
-        LocalSessionManager::default().into(),
-        Default::default(),
-    ));
+    println!("\n🚀 Streamable HTTP Server (actix-web) running at http://{BIND_ADDRESS}");
+    println!("📡 GET / - Resume SSE stream with session ID");
+    println!("📮 POST / - Send JSON-RPC requests");
+    println!("🗑️  DELETE / - Close session");
+    println!("\nPress Ctrl+C to stop the server\n");
 
-    println!("Starting actix-web streamable HTTP server on {bind_addr}");
-    println!("POST / - Send JSON-RPC requests");
-    println!("GET / - Resume SSE stream with session ID");
-    println!("DELETE / - Close session");
-
-    // Use actix-web's HttpServer and App to host the service
-    // The StreamableHttpService::configure method sets up the routes:
-    // - GET / : SSE endpoint for resuming event streams
-    // - POST / : Message endpoint for JSON-RPC requests
-    // - DELETE / : Session management endpoint
+    // Start the HTTP server with the streamable HTTP service mounted
     HttpServer::new(move || {
         App::new()
-            // Add request logging middleware
             .wrap(middleware::Logger::default())
-            // Configure MCP routes - mounts the service at root path
-            .configure(StreamableHttpService::configure(service.clone()))
+            .wrap(middleware::NormalizePath::trim())
+            // Mount streamable HTTP service at root - endpoints will be /, GET/POST/DELETE
+            .service(StreamableHttpService::scope(http_service.clone()))
     })
-    .bind(bind_addr)?
+    .bind(BIND_ADDRESS)?
     .run()
     .await?;
 
+    println!("✅ Server stopped");
     Ok(())
 }

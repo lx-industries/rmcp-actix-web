@@ -21,29 +21,38 @@
 //!
 //! ## Quick Start
 //!
-//! ### SSE Server Example
+//! ### SSE Service Example
 //!
 //! ```rust,no_run
-//! use rmcp_actix_web::SseServer;
-//! use rmcp::{ServerHandler, model::ServerInfo};
+//! use rmcp_actix_web::SseService;
+//! use actix_web::{App, HttpServer};
+//! use std::time::Duration;
 //!
+//! # #[derive(Clone)]
 //! # struct MyMcpService;
-//! # impl ServerHandler for MyMcpService {
-//! #     fn get_info(&self) -> ServerInfo { ServerInfo::default() }
+//! # impl rmcp::ServerHandler for MyMcpService {
+//! #     fn get_info(&self) -> rmcp::model::ServerInfo { rmcp::model::ServerInfo::default() }
 //! # }
 //! # impl MyMcpService {
 //! #     fn new() -> Self { Self }
 //! # }
 //! #[actix_web::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     // Create SSE server with default configuration
-//!     let server = SseServer::serve("127.0.0.1:8080".parse()?).await?;
+//!     let sse_service = SseService::builder()
+//!         .service_factory(std::sync::Arc::new(|| Ok(MyMcpService::new())))
+//!         .sse_path("/sse".to_string())
+//!         .post_path("/message".to_string())
+//!         .sse_keep_alive(Duration::from_secs(30))
+//!         .build();
+//!
+//!     HttpServer::new(move || {
+//!         App::new()
+//!             .service(sse_service.clone().scope())
+//!     })
+//!     .bind("127.0.0.1:8080")?
+//!     .run()
+//!     .await?;
 //!     
-//!     // Attach your MCP service implementation
-//!     let ct = server.with_service(|| MyMcpService::new());
-//!     
-//!     // Server runs until cancellation token is triggered
-//!     ct.cancelled().await;
 //!     Ok(())
 //! }
 //! ```
@@ -55,7 +64,7 @@
 //! use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 //! use rmcp::{ServerHandler, model::ServerInfo};
 //! use actix_web::{App, HttpServer};
-//! use std::sync::Arc;
+//! use std::{sync::Arc, time::Duration};
 //!
 //! # struct MyMcpService;
 //! # impl ServerHandler for MyMcpService {
@@ -66,15 +75,18 @@
 //! # }
 //! #[actix_web::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     let service = Arc::new(StreamableHttpService::new(
-//!         || Ok(MyMcpService::new()),
-//!         LocalSessionManager::default().into(),
-//!         Default::default(),
-//!     ));
+//!     let http_service = Arc::new(
+//!         StreamableHttpService::builder()
+//!             .service_factory(Arc::new(|| Ok(MyMcpService::new())))
+//!             .session_manager(Arc::new(LocalSessionManager::default()))
+//!             .stateful_mode(true)
+//!             .sse_keep_alive(Duration::from_secs(30))
+//!             .build(),
+//!     );
 //!
 //!     HttpServer::new(move || {
 //!         App::new()
-//!             .configure(StreamableHttpService::configure(service.clone()))
+//!             .service(StreamableHttpService::scope(http_service.clone()))
 //!     })
 //!     .bind("127.0.0.1:8080")?
 //!     .run()
@@ -105,48 +117,37 @@
 //! Both transports support framework-level composition aligned with RMCP patterns,
 //! allowing you to mount MCP services at custom paths within existing actix-web applications.
 //!
-//! ### SSE Server Composition
-//!
-//! The [`SseServer::new()`] method returns a tuple of `(SseServer, Scope)` where the
-//! [`Scope`][actix_web::Scope] can be mounted at custom paths:
+//! ### SSE Service Composition
 //!
 //! ```rust,no_run
-//! use rmcp_actix_web::{SseServer, SseServerConfig};
+//! use rmcp_actix_web::SseService;
 //! use actix_web::{App, web};
-//! use tokio_util::sync::CancellationToken;
+//! use std::time::Duration;
 //!
-//! # use rmcp::{ServerHandler, model::ServerInfo};
 //! # struct MyService;
-//! # impl ServerHandler for MyService {
-//! #     fn get_info(&self) -> ServerInfo { ServerInfo::default() }
+//! # impl rmcp::ServerHandler for MyService {
+//! #     fn get_info(&self) -> rmcp::model::ServerInfo { rmcp::model::ServerInfo::default() }
 //! # }
 //! # impl MyService { fn new() -> Self { Self } }
-//! let config = SseServerConfig {
-//!     bind: "127.0.0.1:8080".parse().unwrap(),
-//!     sse_path: "/sse".to_string(),
-//!     post_path: "/message".to_string(),
-//!     ct: CancellationToken::new(),
-//!     sse_keep_alive: None,
-//! };
+//! let sse_service = SseService::builder()
+//!     .service_factory(std::sync::Arc::new(|| Ok(MyService::new())))
+//!     .sse_path("/events".to_string())
+//!     .post_path("/messages".to_string())
+//!     .sse_keep_alive(Duration::from_secs(30))
+//!     .build();
 //!
-//! let (sse_server, mcp_scope) = SseServer::new(config);
-//! let _ct = sse_server.with_service(|| MyService::new());
-//!
-//! // Mount at custom path
+//! // Mount at custom path using scope()
 //! let app = App::new()
-//!     .service(web::scope("/api/v1/mcp").service(mcp_scope));
+//!     .service(web::scope("/api/v1/calculator").service(sse_service.scope()));
 //! ```
 //!
 //! ### StreamableHttp Service Composition
-//!
-//! The [`StreamableHttpService::scope()`] method returns a configured
-//! [`Scope`][actix_web::Scope] for framework-level composition:
 //!
 //! ```rust,no_run
 //! use rmcp_actix_web::StreamableHttpService;
 //! use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 //! use actix_web::{App, web};
-//! use std::sync::Arc;
+//! use std::{sync::Arc, time::Duration};
 //!
 //! # use rmcp::{ServerHandler, model::ServerInfo};
 //! # struct MyService;
@@ -154,59 +155,52 @@
 //! #     fn get_info(&self) -> ServerInfo { ServerInfo::default() }
 //! # }
 //! # impl MyService { fn new() -> Self { Self } }
-//! let service = Arc::new(StreamableHttpService::new(
-//!     || Ok(MyService::new()),
-//!     LocalSessionManager::default().into(),
-//!     Default::default(),
-//! ));
+//! let http_service = Arc::new(
+//!     StreamableHttpService::builder()
+//!         .service_factory(Arc::new(|| Ok(MyService::new())))
+//!         .session_manager(Arc::new(LocalSessionManager::default()))
+//!         .stateful_mode(true)
+//!         .sse_keep_alive(Duration::from_secs(30))
+//!         .build(),
+//! );
 //!
-//! let scope = StreamableHttpService::scope(service);
-//!
-//! // Mount at custom path
+//! // Mount at custom path using scope()
 //! let app = App::new()
-//!     .service(web::scope("/api/v1/calculator").service(scope));
+//!     .service(web::scope("/api/v1/calculator").service(StreamableHttpService::scope(http_service)));
 //! ```
 //!
 //! ### Multi-Service Composition
 //!
-//! You can compose multiple MCP services with different transports in a single application:
-//!
 //! ```rust,no_run
-//! use rmcp_actix_web::{SseServer, SseServerConfig, StreamableHttpService};
+//! use rmcp_actix_web::{SseService, StreamableHttpService};
+//! use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 //! use actix_web::{App, web};
-//! # use std::sync::Arc;
-//! # use tokio_util::sync::CancellationToken;
-//! # use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
-//! # use rmcp::{ServerHandler, model::ServerInfo};
+//! use std::{sync::Arc, time::Duration};
+//!
 //! # struct MyService;
-//! # impl ServerHandler for MyService {
-//! #     fn get_info(&self) -> ServerInfo { ServerInfo::default() }
+//! # impl rmcp::ServerHandler for MyService {
+//! #     fn get_info(&self) -> rmcp::model::ServerInfo { rmcp::model::ServerInfo::default() }
 //! # }
 //! # impl MyService { fn new() -> Self { Self } }
+//! // Both services use identical builder pattern
+//! let sse_service = SseService::builder()
+//!     .service_factory(Arc::new(|| Ok(MyService::new())))
+//!     .sse_path("/events".to_string())
+//!     .post_path("/messages".to_string())
+//!     .build();
 //!
-//! // SSE service
-//! let sse_config = SseServerConfig {
-//!     bind: "127.0.0.1:0".parse().unwrap(),
-//!     sse_path: "/sse".to_string(),
-//!     post_path: "/message".to_string(),
-//!     ct: CancellationToken::new(),
-//!     sse_keep_alive: None,
-//! };
-//! let (sse_server, sse_scope) = SseServer::new(sse_config);
-//! let _ct = sse_server.with_service(|| MyService::new());
+//! let http_service = Arc::new(
+//!     StreamableHttpService::builder()
+//!         .service_factory(Arc::new(|| Ok(MyService::new())))
+//!         .session_manager(Arc::new(LocalSessionManager::default()))
+//!         .stateful_mode(true)
+//!         .build(),
+//! );
 //!
-//! // StreamableHttp service
-//! let http_service = Arc::new(StreamableHttpService::new(
-//!     || Ok(MyService::new()),
-//!     LocalSessionManager::default().into(),
-//!     Default::default(),
-//! ));
-//! let http_scope = StreamableHttpService::scope(http_service);
-//!
-//! // Compose both in one app
+//! // Both services mount identically via scope()
 //! let app = App::new()
-//!     .service(web::scope("/api/v1/sse").service(sse_scope))
-//!     .service(web::scope("/api/v1/http").service(http_scope));
+//!     .service(web::scope("/api/sse").service(sse_service.scope()))
+//!     .service(web::scope("/api/http").service(StreamableHttpService::scope(http_service)));
 //! ```
 //!
 //! See the `examples/` directory for complete working examples of composition patterns.
@@ -236,14 +230,16 @@ pub mod transport;
 
 // Direct exports of main types
 
-/// Server-Sent Events (SSE) transport server implementation.
+/// Server-Sent Events (SSE) transport service implementation.
 ///
 /// Provides real-time, unidirectional communication from server to client using
 /// the SSE protocol. Ideal for streaming updates, notifications, and real-time data.
 ///
+/// Uses a builder pattern for configuration and integrates seamlessly with actix-web.
+///
 /// See the [module documentation](transport::sse_server) for more details.
 #[cfg(feature = "transport-sse-server")]
-pub use transport::sse_server::SseServer;
+pub use transport::sse_server::SseService;
 
 /// Streamable HTTP transport service for actix-web integration.
 ///
@@ -261,25 +257,7 @@ pub use transport::streamable_http_server::StreamableHttpService;
 /// Used by both SSE and Streamable HTTP transports to track individual client connections.
 pub use rmcp::transport::common::server_side_http::SessionId;
 
-/// Configuration for the SSE server transport.
-///
-/// Allows customization of bind address, endpoints, keep-alive intervals, and cancellation.
-///
-/// # Example
-/// ```rust,no_run
-/// use rmcp_actix_web::SseServerConfig;
-/// use tokio_util::sync::CancellationToken;
-///
-/// let config = SseServerConfig {
-///     bind: "127.0.0.1:8080".parse().unwrap(),
-///     sse_path: "/sse".to_string(),
-///     post_path: "/message".to_string(),
-///     ct: CancellationToken::new(),
-///     sse_keep_alive: Some(std::time::Duration::from_secs(30)),
-/// };
-/// ```
-#[cfg(feature = "transport-sse-server")]
-pub use rmcp::transport::sse_server::SseServerConfig;
+// Note: SseServerConfig removed in favor of builder pattern
 
 /// Configuration for the streamable HTTP server transport.
 ///

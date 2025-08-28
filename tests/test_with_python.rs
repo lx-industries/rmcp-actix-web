@@ -1,4 +1,4 @@
-use rmcp_actix_web::SseServer;
+use rmcp_actix_web::SseService;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 mod common;
 use common::calculator::Calculator;
@@ -26,9 +26,25 @@ async fn test_with_python_client() -> anyhow::Result<()> {
 
     const BIND_ADDRESS: &str = "127.0.0.1:8000";
 
-    let ct = SseServer::serve(BIND_ADDRESS.parse()?)
-        .await?
-        .with_service(Calculator::default);
+    // Create SSE service using builder pattern
+    let sse_service = SseService::builder()
+        .service_factory(std::sync::Arc::new(|| Ok(Calculator::new())))
+        .build();
+
+    // Start HTTP server with SSE service
+    let server = actix_web::HttpServer::new(move || {
+        actix_web::App::new()
+            .wrap(actix_web::middleware::Logger::default())
+            .service(sse_service.clone().scope())
+    })
+    .bind(BIND_ADDRESS)?
+    .run();
+
+    let server_handle = server.handle();
+    let server_task = tokio::spawn(server);
+
+    // Give the server a moment to start
+    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 
     let output = tokio::process::Command::new("uv")
         .arg("run")
@@ -59,7 +75,10 @@ async fn test_with_python_client() -> anyhow::Result<()> {
     }
 
     insta::assert_json_snapshot!("python_sse_client_responses", responses);
-    ct.cancel();
+
+    // Shutdown the server
+    server_handle.stop(true).await;
+    let _ = server_task.await;
     Ok(())
 }
 

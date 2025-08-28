@@ -39,15 +39,17 @@
 //! # impl MyService { fn new() -> Self { Self } }
 //! #[actix_web::main]
 //! async fn main() -> std::io::Result<()> {
-//!     let service = Arc::new(StreamableHttpService::new(
-//!         || Ok(MyService::new()),
-//!         LocalSessionManager::default().into(),
-//!         Default::default(),
-//!     ));
+//!     let service = Arc::new(
+//!         StreamableHttpService::builder()
+//!             .service_factory(Arc::new(|| Ok(MyService::new())))
+//!             .session_manager(Arc::new(LocalSessionManager::default()))
+//!             .stateful_mode(true)
+//!             .build(),
+//!     );
 //!
 //!     HttpServer::new(move || {
 //!         App::new()
-//!             .configure(|cfg| service.clone().config(cfg))
+//!             .service(StreamableHttpService::scope(service.clone()))
 //!     })
 //!     .bind("127.0.0.1:8080")?
 //!     .run()
@@ -55,7 +57,7 @@
 //! }
 //! ```
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use actix_web::{
     HttpRequest, HttpResponse, Result, Scope,
@@ -78,7 +80,7 @@ use rmcp::{
     transport::{
         OneshotTransport, TransportAdapterIdentity,
         common::http_header::{HEADER_LAST_EVENT_ID, HEADER_SESSION_ID},
-        streamable_http_server::{StreamableHttpServerConfig, session::SessionManager},
+        streamable_http_server::session::SessionManager,
     },
 };
 
@@ -87,11 +89,31 @@ const HEADER_X_ACCEL_BUFFERING: &str = "X-Accel-Buffering";
 const EVENT_STREAM_MIME_TYPE: &str = "text/event-stream";
 const JSON_MIME_TYPE: &str = "application/json";
 
+/// Configuration for the streamable HTTP server transport.
+///
+/// Contains settings for session management and connection behavior.
+#[derive(Debug, Clone)]
+pub struct StreamableHttpServerConfig {
+    /// Whether to enable stateful session management
+    pub stateful_mode: bool,
+    /// Optional keep-alive interval for SSE connections
+    pub sse_keep_alive: Option<Duration>,
+}
+
+impl Default for StreamableHttpServerConfig {
+    fn default() -> Self {
+        Self {
+            stateful_mode: true,
+            sse_keep_alive: None,
+        }
+    }
+}
+
 /// Streamable HTTP transport service for actix-web integration.
 ///
 /// Provides bidirectional MCP communication over HTTP with session management.
-/// This service can be integrated into existing actix-web applications or used
-/// standalone.
+/// This service can be integrated into existing actix-web applications.
+/// Uses a builder pattern for configuration.
 ///
 /// # Type Parameters
 ///
@@ -100,9 +122,10 @@ const JSON_MIME_TYPE: &str = "application/json";
 ///
 /// # Architecture
 ///
-/// The service manages two main endpoints:
-/// - Streaming endpoint for long-lived bidirectional connections
-/// - Message endpoint for request/response patterns
+/// The service manages endpoints with multiple HTTP methods:
+/// - GET: For streaming event connections
+/// - POST: For sending messages and creating sessions
+/// - DELETE: For closing sessions
 ///
 /// Each client is identified by a session ID that must be provided in request headers.
 ///
@@ -112,6 +135,7 @@ const JSON_MIME_TYPE: &str = "application/json";
 /// use rmcp_actix_web::StreamableHttpService;
 /// use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 /// use actix_web::{App, HttpServer, web};
+/// use std::{sync::Arc, time::Duration};
 ///
 /// # use rmcp::{ServerHandler, model::ServerInfo};
 /// # struct MyService;
@@ -121,31 +145,41 @@ const JSON_MIME_TYPE: &str = "application/json";
 /// # impl MyService { fn new() -> Self { Self } }
 /// #[actix_web::main]
 /// async fn main() -> std::io::Result<()> {
-///     let service = StreamableHttpService::new(
-///         || Ok(MyService::new()),
-///         LocalSessionManager::default().into(),
-///         Default::default(),
+///     let service = Arc::new(
+///         StreamableHttpService::builder()
+///             .service_factory(Arc::new(|| Ok(MyService::new())))
+///             .session_manager(Arc::new(LocalSessionManager::default()))
+///             .stateful_mode(true)
+///             .sse_keep_alive(Duration::from_secs(30))
+///             .build(),
 ///     );
 ///
 ///     HttpServer::new(move || {
 ///         App::new()
-///             // Mount the service at a specific path
-///             .service(web::scope("/mcp").configure(|cfg| { let _ = cfg; }))
+///             .service(web::scope("/mcp").service(StreamableHttpService::scope(service.clone())))
 ///     })
 ///     .bind("127.0.0.1:8080")?
 ///     .run()
 ///     .await
 /// }
 /// ```
-#[derive(Clone)]
+#[derive(Clone, bon::Builder)]
 pub struct StreamableHttpService<
     S,
     M = rmcp::transport::streamable_http_server::session::local::LocalSessionManager,
 > {
-    /// The configuration for this service instance.
-    pub config: StreamableHttpServerConfig,
-    session_manager: Arc<M>,
+    /// The service factory function that creates new MCP service instances
     service_factory: Arc<dyn Fn() -> Result<S, std::io::Error> + Send + Sync>,
+
+    /// The session manager for tracking client connections  
+    session_manager: Arc<M>,
+
+    /// Whether to enable stateful session management
+    #[builder(default = true)]
+    stateful_mode: bool,
+
+    /// Optional keep-alive interval for SSE connections
+    sse_keep_alive: Option<Duration>,
 }
 
 impl<S, M> StreamableHttpService<S, M>
@@ -153,46 +187,6 @@ where
     S: rmcp::ServerHandler + Send + 'static,
     M: SessionManager + 'static,
 {
-    /// Creates a new streamable HTTP service.
-    ///
-    /// # Arguments
-    ///
-    /// * `service_factory` - A function that creates new MCP service instances.
-    ///   This is called for each new client session.
-    /// * `session_manager` - The session manager for tracking client connections
-    /// * `config` - Service configuration (currently uses defaults)
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// use rmcp_actix_web::StreamableHttpService;
-    /// use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
-    /// use std::sync::Arc;
-    ///
-    /// # use rmcp::{ServerHandler, model::ServerInfo};
-    /// # struct MyService;
-    /// # impl ServerHandler for MyService {
-    /// #     fn get_info(&self) -> ServerInfo { ServerInfo::default() }
-    /// # }
-    /// # impl MyService { fn new() -> Self { Self } }
-    /// let service = StreamableHttpService::new(
-    ///     || Ok(MyService::new()),
-    ///     Arc::new(LocalSessionManager::default()),
-    ///     Default::default(),
-    /// );
-    /// ```
-    pub fn new(
-        service_factory: impl Fn() -> Result<S, std::io::Error> + Send + Sync + 'static,
-        session_manager: Arc<M>,
-        config: StreamableHttpServerConfig,
-    ) -> Self {
-        Self {
-            config,
-            session_manager,
-            service_factory: Arc::new(service_factory),
-        }
-    }
-
     fn get_service(&self) -> Result<S, std::io::Error> {
         (self.service_factory)()
     }
@@ -222,11 +216,12 @@ where
     ///
     /// #[actix_web::main]
     /// async fn main() -> std::io::Result<()> {
-    ///     let service = Arc::new(StreamableHttpService::new(
-    ///         || Ok(MyService::new()),
-    ///         LocalSessionManager::default().into(),
-    ///         Default::default(),
-    ///     ));
+    ///     let service = Arc::new(
+    ///         StreamableHttpService::builder()
+    ///             .service_factory(Arc::new(|| Ok(MyService::new())))
+    ///             .session_manager(Arc::new(LocalSessionManager::default()))
+    ///             .build(),
+    ///     );
     ///
     ///     HttpServer::new(move || {
     ///         App::new()
@@ -271,11 +266,12 @@ where
     /// # impl MyService { fn new() -> Self { Self } }
     /// #[actix_web::main]
     /// async fn main() -> std::io::Result<()> {
-    ///     let service = Arc::new(StreamableHttpService::new(
-    ///         || Ok(MyService::new()),
-    ///         LocalSessionManager::default().into(),
-    ///         Default::default(),
-    ///     ));
+    ///     let service = Arc::new(
+    ///         StreamableHttpService::builder()
+    ///             .service_factory(Arc::new(|| Ok(MyService::new())))
+    ///             .session_manager(Arc::new(LocalSessionManager::default()))
+    ///             .build(),
+    ///     );
     ///     
     ///     let scope = StreamableHttpService::scope(service);
     ///     
@@ -381,7 +377,7 @@ where
             };
 
         // Convert to SSE format
-        let keep_alive = service.config.sse_keep_alive;
+        let keep_alive = service.sse_keep_alive;
         let sse_stream = async_stream::stream! {
             let mut stream = sse_stream;
             let mut keep_alive_timer = keep_alive.map(|duration| tokio::time::interval(duration));
@@ -458,7 +454,7 @@ where
 
         tracing::debug!(?message, "POST request with message");
 
-        if service.config.stateful_mode {
+        if service.stateful_mode {
             // Check session id
             let session_id = req
                 .headers()
@@ -494,7 +490,7 @@ where
                             })?;
 
                         // Convert to SSE format
-                        let keep_alive = service.config.sse_keep_alive;
+                        let keep_alive = service.sse_keep_alive;
                         let sse_stream = async_stream::stream! {
                             let mut stream = Box::pin(stream);
                             let mut keep_alive_timer = keep_alive.map(|duration| tokio::time::interval(duration));
@@ -662,7 +658,7 @@ where
                     });
 
                     // Add keep-alive if configured
-                    let keep_alive = service.config.sse_keep_alive;
+                    let keep_alive = service.sse_keep_alive;
                     let sse_stream = async_stream::stream! {
                         let mut stream = Box::pin(sse_stream);
                         let mut keep_alive_timer = keep_alive.map(|duration| tokio::time::interval(duration));

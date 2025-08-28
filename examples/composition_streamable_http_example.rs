@@ -1,14 +1,16 @@
 //! StreamableHttp Service Composition Example
 //!
 //! This example demonstrates how to use framework-level composition to mount
-//! StreamableHttp MCP services at custom paths within an existing actix-web application.
+//! StreamableHttp MCP services at custom paths within an existing actix-web application
+//! using the unified builder pattern.
 //!
 //! ## Key Features Demonstrated
 //!
-//! - Using `StreamableHttpService::scope()` to get a composable scope
-//! - Mounting MCP services at custom paths
+//! - Using `StreamableHttpService::builder()` to configure the service
+//! - Mounting MCP services at custom paths using `.scope()`
 //! - Integration with existing actix-web middleware and routes
 //! - Session management for stateful MCP communication
+//! - Unified builder pattern consistent with SseService
 //!
 //! ## Usage
 //!
@@ -32,13 +34,10 @@
 //!      -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
 //! ```
 
-use std::sync::Arc;
-
-use actix_web::{App, HttpResponse, HttpServer, Result, web};
-use rmcp::transport::{
-    StreamableHttpServerConfig, streamable_http_server::session::local::LocalSessionManager,
-};
+use actix_web::{App, HttpResponse, HttpServer, Result, middleware, web};
+use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 use rmcp_actix_web::StreamableHttpService;
+use std::{sync::Arc, time::Duration};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod common;
@@ -104,30 +103,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         bind_addr
     );
 
-    // Create the StreamableHttp service OUTSIDE HttpServer::new() to share across workers
-    let calculator_service = Arc::new(StreamableHttpService::new(
-        || {
-            tracing::debug!("Creating new Calculator instance for session");
-            Ok(Calculator::new())
-        },
-        LocalSessionManager::default().into(),
-        StreamableHttpServerConfig {
-            stateful_mode: true, // Enable session management
-            sse_keep_alive: Some(std::time::Duration::from_secs(30)),
-        },
-    ));
+    // Create the StreamableHttp service using builder pattern
+    let calculator_service = Arc::new(
+        StreamableHttpService::builder()
+            .service_factory(Arc::new(|| {
+                tracing::debug!("Creating new Calculator instance for session");
+                Ok(Calculator::new())
+            }))
+            .session_manager(Arc::new(LocalSessionManager::default())) // Session management
+            .stateful_mode(true) // Enable session management
+            .sse_keep_alive(Duration::from_secs(30)) // Keep-alive pings
+            .build(),
+    );
 
     // Create the main HTTP server with framework-level composition
     let server = HttpServer::new(move || {
-        // Get the composable scope for the calculator service (cloned for each worker)
-        let calculator_scope = StreamableHttpService::scope(calculator_service.clone());
-
         App::new()
             // Add comprehensive logging middleware
-            .wrap(actix_web::middleware::Logger::default())
+            .wrap(middleware::Logger::default())
+            .wrap(middleware::NormalizePath::trim())
             // Add CORS middleware for web clients
             .wrap(
-                actix_web::middleware::DefaultHeaders::new()
+                middleware::DefaultHeaders::new()
                     .add(("Access-Control-Allow-Origin", "*"))
                     .add(("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS"))
                     .add((
@@ -139,19 +136,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .route("/", web::get().to(root))
             .route("/health", web::get().to(health_check))
             .route("/api/info", web::get().to(api_info))
-            // Mount the MCP calculator service at a custom API path
-            .service(web::scope("/api").service(
-                web::scope("/v1").service(web::scope("/calculator").service(calculator_scope)),
-            ))
-        // You could add more services here:
-        // .service(
-        //     web::scope("/api/v1/file-manager")
-        //         .service(file_manager_scope)
-        // )
-        // .service(
-        //     web::scope("/api/v2/calculator")
-        //         .service(calculator_v2_scope)
-        // )
+            // Mount the MCP calculator service at a custom API path using scope()
+            .service(
+                web::scope("/api").service(
+                    web::scope("/v1").service(
+                        web::scope("/calculator")
+                            .service(StreamableHttpService::scope(calculator_service.clone())),
+                    ),
+                ),
+            )
     })
     .bind(bind_addr)?
     .run();

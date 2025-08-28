@@ -52,18 +52,24 @@ rmcp-actix-web = { version = "0.2", default-features = false, features = ["trans
 ### Simple SSE Server
 
 ```rust
-use rmcp_actix_web::SseServer;
+use rmcp_actix_web::SseService;
+use actix_web::{App, HttpServer};
+use std::sync::Arc;
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Start server with default configuration
-    let server = SseServer::serve("127.0.0.1:8080".parse()?).await?;
+    let sse_service = SseService::builder()
+        .service_factory(Arc::new(|| Ok(MyMcpService::new())))
+        .build();
 
-    // Attach your MCP service
-    let ct = server.with_service(|| MyMcpService::new());
-
-    // Wait for shutdown
-    ct.cancelled().await;
+    HttpServer::new(move || {
+        App::new()
+            .service(sse_service.clone().scope())
+    })
+    .bind("127.0.0.1:8080")?
+    .run()
+    .await?;
+    
     Ok(())
 }
 ```
@@ -73,41 +79,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 Mount MCP services at custom paths within existing actix-web applications:
 
 ```rust
-use rmcp_actix_web::{SseServer, SseServerConfig, StreamableHttpService};
+use rmcp_actix_web::{SseService, StreamableHttpService};
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 use actix_web::{App, HttpServer, web};
 use std::sync::Arc;
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Create StreamableHttp service OUTSIDE HttpServer::new() to share across workers
-    let http_service = Arc::new(StreamableHttpService::new(
-        || Ok(MyMcpService::new()),
-        LocalSessionManager::default().into(),
-        Default::default(),
-    ));
+    // SSE service with builder pattern
+    let sse_service = SseService::builder()
+        .service_factory(Arc::new(|| Ok(MyMcpService::new())))
+        .sse_path("/events".to_string())
+        .post_path("/messages".to_string())
+        .build();
+
+    // StreamableHttp service with builder pattern (shared across workers)
+    let http_service = Arc::new(
+        StreamableHttpService::builder()
+            .service_factory(Arc::new(|| Ok(MyMcpService::new())))
+            .session_manager(Arc::new(LocalSessionManager::default()))
+            .stateful_mode(true)
+            .build(),
+    );
 
     HttpServer::new(move || {
-        // SSE service at custom path
-        let sse_config = SseServerConfig {
-            bind: "127.0.0.1:0".parse().unwrap(),
-            sse_path: "/sse".to_string(),
-            post_path: "/message".to_string(),
-            ct: tokio_util::sync::CancellationToken::new(),
-            sse_keep_alive: None,
-        };
-        let (sse_server, sse_scope) = SseServer::new(sse_config);
-        let _ct = sse_server.with_service(|| MyMcpService::new());
-
-        // StreamableHttp service at custom path (cloned for each worker)
-        let http_scope = StreamableHttpService::scope(http_service.clone());
-
         App::new()
             // Your existing routes
-            .route("/health", web::get().to(health_check))
+            .route("/health", web::get().to(|| async { "OK" }))
             // Mount MCP services at custom paths
-            .service(web::scope("/api/v1/sse-calc").service(sse_scope))
-            .service(web::scope("/api/v1/http-calc").service(http_scope))
+            .service(web::scope("/api/v1/sse-calc").service(sse_service.clone().scope()))
+            .service(web::scope("/api/v1/http-calc").service(StreamableHttpService::scope(http_service.clone())))
     })
     .bind("127.0.0.1:8080")?
     .run()
@@ -148,10 +149,10 @@ Each example includes detailed documentation and curl commands for testing.
 ## Key Features
 
 ### Framework-Level Composition
-- **SSE Server**: `SseServer::new()` returns `(SseServer, Scope)` for mounting at custom paths
-- **StreamableHttp**: `StreamableHttpService::scope()` returns configured `Scope` for composition
+- **SSE Service**: `SseService::builder().build()` with `.scope()` method for mounting at custom paths
+- **StreamableHttp**: `StreamableHttpService::builder().build()` with `.scope()` for composition
 - **Multi-Service**: Compose multiple MCP services with different transports in one app
-- **RMCP Alignment**: APIs follow RMCP ecosystem patterns for consistency
+- **Unified Builder API**: Consistent builder pattern across all transport services
 
 ### Protocol Support
 - **Full MCP Compatibility**: Implements complete MCP protocol specification

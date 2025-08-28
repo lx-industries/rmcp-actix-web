@@ -1,7 +1,6 @@
-use rmcp::transport::{
-    StreamableHttpServerConfig, streamable_http_server::session::local::LocalSessionManager,
-};
-use rmcp_actix_web::{SseServer, StreamableHttpService};
+use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
+use rmcp_actix_web::{SseService, StreamableHttpService};
+use std::sync::Arc;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 mod common;
 use common::calculator::Calculator;
@@ -25,9 +24,25 @@ async fn test_with_js_client() -> anyhow::Result<()> {
         .wait()
         .await?;
 
-    let ct = SseServer::serve(SSE_BIND_ADDRESS.parse()?)
-        .await?
-        .with_service(Calculator::default);
+    // Create SSE service using builder pattern
+    let sse_service = SseService::builder()
+        .service_factory(Arc::new(|| Ok(Calculator::new())))
+        .build();
+
+    // Start HTTP server with SSE service
+    let server = actix_web::HttpServer::new(move || {
+        actix_web::App::new()
+            .wrap(actix_web::middleware::Logger::default())
+            .service(sse_service.clone().scope())
+    })
+    .bind(SSE_BIND_ADDRESS)?
+    .run();
+
+    let server_handle = server.handle();
+    let server_task = tokio::spawn(server);
+
+    // Give the server a moment to start
+    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 
     let output = tokio::process::Command::new("node")
         .arg("tests/test_with_js/client.js")
@@ -55,7 +70,10 @@ async fn test_with_js_client() -> anyhow::Result<()> {
     }
 
     insta::assert_json_snapshot!("js_sse_client_responses", responses);
-    ct.cancel();
+
+    // Shutdown the server
+    server_handle.stop(true).await;
+    let _ = server_task.await;
     Ok(())
 }
 
@@ -75,15 +93,12 @@ async fn test_with_js_streamable_http_client() -> anyhow::Result<()> {
         .wait()
         .await?;
 
-    let service = std::sync::Arc::new(
-        StreamableHttpService::<Calculator, LocalSessionManager>::new(
-            || Ok(Calculator::new()),
-            Default::default(),
-            StreamableHttpServerConfig {
-                stateful_mode: true,
-                sse_keep_alive: None,
-            },
-        ),
+    let http_service = Arc::new(
+        StreamableHttpService::builder()
+            .service_factory(Arc::new(|| Ok(Calculator::new())))
+            .session_manager(Arc::new(LocalSessionManager::default()))
+            .stateful_mode(true)
+            .build(),
     );
 
     let server = actix_web::HttpServer::new(move || {
@@ -91,7 +106,7 @@ async fn test_with_js_streamable_http_client() -> anyhow::Result<()> {
             .wrap(actix_web::middleware::Logger::default())
             .service(
                 actix_web::web::scope("/mcp")
-                    .configure(StreamableHttpService::configure(service.clone())),
+                    .service(StreamableHttpService::scope(http_service.clone())),
             )
     })
     .bind(STREAMABLE_HTTP_BIND_ADDRESS)?
