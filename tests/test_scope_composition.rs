@@ -44,13 +44,11 @@ async fn test_sse_service_scope_composition() {
 #[actix_web::test]
 async fn test_streamable_http_service_scope_composition() {
     // Test that StreamableHttpService can be mounted at a custom path using builder pattern
-    let http_service = Arc::new(
-        StreamableHttpService::builder()
-            .service_factory(Arc::new(|| Ok(Calculator::new())))
-            .session_manager(Arc::new(LocalSessionManager::default()))
-            .stateful_mode(true)
-            .build(),
-    );
+    let http_service = StreamableHttpService::builder()
+        .service_factory(Arc::new(|| Ok(Calculator::new())))
+        .session_manager(Arc::new(LocalSessionManager::default()))
+        .stateful_mode(true)
+        .build();
 
     // Create app with scope mounted at custom path
     let app = test::init_service(
@@ -91,13 +89,11 @@ async fn test_multiple_services_composition() {
         .post_path("/message".to_string())
         .build();
 
-    let http_service = Arc::new(
-        StreamableHttpService::builder()
-            .service_factory(Arc::new(|| Ok(Calculator::new())))
-            .session_manager(Arc::new(LocalSessionManager::default()))
-            .stateful_mode(true)
-            .build(),
-    );
+    let http_service = StreamableHttpService::builder()
+        .service_factory(Arc::new(|| Ok(Calculator::new())))
+        .session_manager(Arc::new(LocalSessionManager::default()))
+        .stateful_mode(true)
+        .build();
 
     // Create app with both services mounted at different paths
     let app = test::init_service(

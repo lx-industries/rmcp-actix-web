@@ -71,16 +71,6 @@ async fn main() -> anyhow::Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    // Create streamable HTTP service using builder pattern
-    let http_service = Arc::new(
-        StreamableHttpService::builder()
-            .service_factory(Arc::new(|| Ok(Counter::new()))) // Create new Counter for each session
-            .session_manager(Arc::new(LocalSessionManager::default())) // Local session management
-            .stateful_mode(true) // Enable stateful session management
-            .sse_keep_alive(Duration::from_secs(30)) // Keep-alive pings every 30 seconds
-            .build(),
-    );
-
     println!("\n🚀 Streamable HTTP Server (actix-web) running at http://{BIND_ADDRESS}");
     println!("📡 GET / - Resume SSE stream with session ID");
     println!("📮 POST / - Send JSON-RPC requests");
@@ -88,12 +78,20 @@ async fn main() -> anyhow::Result<()> {
     println!("\nPress Ctrl+C to stop the server\n");
 
     // Start the HTTP server with the streamable HTTP service mounted
-    HttpServer::new(move || {
+    HttpServer::new(|| {
+        // Create streamable HTTP service using builder pattern
+        let http_service = StreamableHttpService::builder()
+            .service_factory(Arc::new(|| Ok(Counter::new()))) // Create new Counter for each session
+            .session_manager(Arc::new(LocalSessionManager::default())) // Local session management
+            .stateful_mode(true) // Enable stateful session management
+            .sse_keep_alive(Duration::from_secs(30)) // Keep-alive pings every 30 seconds
+            .build();
+
         App::new()
             .wrap(middleware::Logger::default())
             .wrap(middleware::NormalizePath::trim())
             // Mount streamable HTTP service at root - endpoints will be /, GET/POST/DELETE
-            .service(http_service.clone().scope())
+            .service(http_service.scope())
     })
     .bind(BIND_ADDRESS)?
     .run()

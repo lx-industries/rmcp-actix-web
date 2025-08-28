@@ -133,72 +133,68 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bind_addr = "127.0.0.1:8080";
     tracing::info!("🚀 Starting Multi-Service MCP server on {}", bind_addr);
 
-    // === Create Services using Unified Builder Pattern ===
-
-    // SSE Calculator Service
-    let sse_service = SseService::builder()
-        .service_factory(Arc::new(|| {
-            tracing::debug!("Creating new Calculator for SSE transport");
-            Ok(Calculator::new())
-        }))
-        .sse_path("/sse".to_string()) // Custom SSE endpoint
-        .post_path("/message".to_string()) // Custom message endpoint
-        .sse_keep_alive(Duration::from_secs(30)) // Keep-alive pings
-        .build();
-
-    // StreamableHttp Calculator Service - wrap in Arc since it can't be cloned
-    let http_service = Arc::new(
-        StreamableHttpService::builder()
-            .service_factory(Arc::new(|| {
-                tracing::debug!("Creating new Calculator for StreamableHttp transport");
-                Ok(Calculator::new())
-            }))
-            .session_manager(Arc::new(LocalSessionManager::default())) // Session management
-            .stateful_mode(true) // Enable sessions
-            .sse_keep_alive(Duration::from_secs(30)) // Keep-alive pings
-            .build(),
-    );
-
     // === Main HTTP Server with All Services ===
-    let server = HttpServer::new(move || {
-        App::new()
-            // === Middleware Stack ===
-            .wrap(middleware::Logger::default())
-            .wrap(middleware::NormalizePath::trim())
-            .wrap(
-                middleware::DefaultHeaders::new()
-                    .add(("Access-Control-Allow-Origin", "*"))
-                    .add(("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS"))
-                    .add((
-                        "Access-Control-Allow-Headers",
-                        "Content-Type, Accept, Mcp-Session-Id, Last-Event-ID",
-                    ))
-                    .add(("X-Service-Type", "multi-mcp")),
-            )
-            // === Application Routes ===
-            .route("/", web::get().to(root))
-            .route("/health", web::get().to(health_check))
-            // === API Structure ===
-            .service(
-                web::scope("/api")
-                    // Service discovery
-                    .route("/services", web::get().to(service_discovery))
-                    // API v1 with different transport services
-                    .service(
-                        web::scope("/v1")
-                            // SSE-based calculator using scope()
-                            .service(web::scope("/sse").service(
-                                web::scope("/calculator").service(sse_service.clone().scope()),
-                            ))
-                            // StreamableHttp-based calculator using scope()
-                            .service(web::scope("/http").service(
-                                web::scope("/calculator").service(http_service.clone().scope()),
-                            )),
-                    ),
-            )
-    })
-    .bind(bind_addr)?
-    .run();
+    let server =
+        HttpServer::new(|| {
+            // SSE Calculator Service
+            let sse_service = SseService::builder()
+                .service_factory(Arc::new(|| {
+                    tracing::debug!("Creating new Calculator for SSE transport");
+                    Ok(Calculator::new())
+                }))
+                .sse_path("/sse".to_string()) // Custom SSE endpoint
+                .post_path("/message".to_string()) // Custom message endpoint
+                .sse_keep_alive(Duration::from_secs(30)) // Keep-alive pings
+                .build();
+
+            // StreamableHttp Calculator Service
+            let http_service = StreamableHttpService::builder()
+                .service_factory(Arc::new(|| {
+                    tracing::debug!("Creating new Calculator for StreamableHttp transport");
+                    Ok(Calculator::new())
+                }))
+                .session_manager(Arc::new(LocalSessionManager::default())) // Session management
+                .stateful_mode(true) // Enable sessions
+                .sse_keep_alive(Duration::from_secs(30)) // Keep-alive pings
+                .build();
+            App::new()
+                // === Middleware Stack ===
+                .wrap(middleware::Logger::default())
+                .wrap(middleware::NormalizePath::trim())
+                .wrap(
+                    middleware::DefaultHeaders::new()
+                        .add(("Access-Control-Allow-Origin", "*"))
+                        .add(("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS"))
+                        .add((
+                            "Access-Control-Allow-Headers",
+                            "Content-Type, Accept, Mcp-Session-Id, Last-Event-ID",
+                        ))
+                        .add(("X-Service-Type", "multi-mcp")),
+                )
+                // === Application Routes ===
+                .route("/", web::get().to(root))
+                .route("/health", web::get().to(health_check))
+                // === API Structure ===
+                .service(
+                    web::scope("/api")
+                        // Service discovery
+                        .route("/services", web::get().to(service_discovery))
+                        // API v1 with different transport services
+                        .service(
+                            web::scope("/v1")
+                                // SSE-based calculator using scope()
+                                .service(web::scope("/sse").service(
+                                    web::scope("/calculator").service(sse_service.scope()),
+                                ))
+                                // StreamableHttp-based calculator using scope()
+                                .service(web::scope("/http").service(
+                                    web::scope("/calculator").service(http_service.scope()),
+                                )),
+                        ),
+                )
+        })
+        .bind(bind_addr)?
+        .run();
 
     // === Startup Information ===
     tracing::info!("✅ Multi-Service MCP Server started successfully!");

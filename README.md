@@ -94,13 +94,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build();
 
     // StreamableHttp service with builder pattern (shared across workers)
-    let http_service = Arc::new(
-        StreamableHttpService::builder()
-            .service_factory(Arc::new(|| Ok(MyMcpService::new())))
-            .session_manager(Arc::new(LocalSessionManager::default()))
-            .stateful_mode(true)
-            .build(),
-    );
+    let http_service = StreamableHttpService::builder()
+        .service_factory(Arc::new(|| Ok(MyMcpService::new())))
+        .session_manager(Arc::new(LocalSessionManager::default()))
+        .stateful_mode(true)
+        .build();
 
     HttpServer::new(move || {
         App::new()

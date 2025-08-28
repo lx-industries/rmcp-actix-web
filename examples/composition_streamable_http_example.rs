@@ -103,9 +103,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         bind_addr
     );
 
-    // Create the StreamableHttp service using builder pattern
-    let calculator_service = Arc::new(
-        StreamableHttpService::builder()
+    // Create the main HTTP server with framework-level composition
+    let server = HttpServer::new(|| {
+        // Create the StreamableHttp service using builder pattern
+        let calculator_service = StreamableHttpService::builder()
             .service_factory(Arc::new(|| {
                 tracing::debug!("Creating new Calculator instance for session");
                 Ok(Calculator::new())
@@ -113,37 +114,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .session_manager(Arc::new(LocalSessionManager::default())) // Session management
             .stateful_mode(true) // Enable session management
             .sse_keep_alive(Duration::from_secs(30)) // Keep-alive pings
-            .build(),
-    );
-
-    // Create the main HTTP server with framework-level composition
-    let server =
-        HttpServer::new(move || {
-            App::new()
-                // Add comprehensive logging middleware
-                .wrap(middleware::Logger::default())
-                .wrap(middleware::NormalizePath::trim())
-                // Add CORS middleware for web clients
-                .wrap(
-                    middleware::DefaultHeaders::new()
-                        .add(("Access-Control-Allow-Origin", "*"))
-                        .add(("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS"))
-                        .add((
-                            "Access-Control-Allow-Headers",
-                            "Content-Type, Accept, Mcp-Session-Id",
-                        )),
-                )
-                // Add custom application routes
-                .route("/", web::get().to(root))
-                .route("/health", web::get().to(health_check))
-                .route("/api/info", web::get().to(api_info))
-                // Mount the MCP calculator service at a custom API path using scope()
-                .service(web::scope("/api").service(web::scope("/v1").service(
-                    web::scope("/calculator").service(calculator_service.clone().scope()),
-                )))
-        })
-        .bind(bind_addr)?
-        .run();
+            .build();
+        App::new()
+            // Add comprehensive logging middleware
+            .wrap(middleware::Logger::default())
+            .wrap(middleware::NormalizePath::trim())
+            // Add CORS middleware for web clients
+            .wrap(
+                middleware::DefaultHeaders::new()
+                    .add(("Access-Control-Allow-Origin", "*"))
+                    .add(("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS"))
+                    .add((
+                        "Access-Control-Allow-Headers",
+                        "Content-Type, Accept, Mcp-Session-Id",
+                    )),
+            )
+            // Add custom application routes
+            .route("/", web::get().to(root))
+            .route("/health", web::get().to(health_check))
+            .route("/api/info", web::get().to(api_info))
+            // Mount the MCP calculator service at a custom API path using scope()
+            .service(
+                web::scope("/api").service(
+                    web::scope("/v1")
+                        .service(web::scope("/calculator").service(calculator_service.scope())),
+                ),
+            )
+    })
+    .bind(bind_addr)?
+    .run();
 
     tracing::info!("🚀 Server started successfully!");
     tracing::info!("📊 Health check: http://{}/health", bind_addr);

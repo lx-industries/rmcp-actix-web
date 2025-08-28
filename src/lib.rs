@@ -66,6 +66,7 @@
 //! use actix_web::{App, HttpServer};
 //! use std::{sync::Arc, time::Duration};
 //!
+//! # #[derive(Clone)]
 //! # struct MyMcpService;
 //! # impl ServerHandler for MyMcpService {
 //! #     fn get_info(&self) -> ServerInfo { ServerInfo::default() }
@@ -75,18 +76,16 @@
 //! # }
 //! #[actix_web::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     let http_service = Arc::new(
-//!         StreamableHttpService::builder()
+//!     HttpServer::new(|| {
+//!         let http_service = StreamableHttpService::builder()
 //!             .service_factory(Arc::new(|| Ok(MyMcpService::new())))
 //!             .session_manager(Arc::new(LocalSessionManager::default()))
 //!             .stateful_mode(true)
 //!             .sse_keep_alive(Duration::from_secs(30))
-//!             .build(),
-//!     );
+//!             .build();
 //!
-//!     HttpServer::new(move || {
 //!         App::new()
-//!             .service(http_service.clone().scope())
+//!             .service(http_service.scope())
 //!     })
 //!     .bind("127.0.0.1:8080")?
 //!     .run()
@@ -124,6 +123,7 @@
 //! use actix_web::{App, web};
 //! use std::time::Duration;
 //!
+//! # #[derive(Clone)]
 //! # struct MyService;
 //! # impl rmcp::ServerHandler for MyService {
 //! #     fn get_info(&self) -> rmcp::model::ServerInfo { rmcp::model::ServerInfo::default() }
@@ -150,23 +150,28 @@
 //! use std::{sync::Arc, time::Duration};
 //!
 //! # use rmcp::{ServerHandler, model::ServerInfo};
+//! # #[derive(Clone)]
 //! # struct MyService;
 //! # impl ServerHandler for MyService {
 //! #     fn get_info(&self) -> ServerInfo { ServerInfo::default() }
 //! # }
 //! # impl MyService { fn new() -> Self { Self } }
-//! let http_service = Arc::new(
-//!     StreamableHttpService::builder()
+//! # use actix_web::HttpServer;
+//! # #[actix_web::main]
+//! # async fn main() -> std::io::Result<()> {
+//! HttpServer::new(|| {
+//!     let http_service = StreamableHttpService::builder()
 //!         .service_factory(Arc::new(|| Ok(MyService::new())))
 //!         .session_manager(Arc::new(LocalSessionManager::default()))
 //!         .stateful_mode(true)
 //!         .sse_keep_alive(Duration::from_secs(30))
-//!         .build(),
-//! );
+//!         .build();
 //!
-//! // Mount at custom path using scope()
-//! let app = App::new()
-//!     .service(web::scope("/api/v1/calculator").service(http_service.scope()));
+//!     // Mount at custom path using scope()
+//!     App::new()
+//!         .service(web::scope("/api/v1/calculator").service(http_service.scope()))
+//! }).bind("127.0.0.1:8080")?.run().await
+//! # }
 //! ```
 //!
 //! ### Multi-Service Composition
@@ -177,30 +182,35 @@
 //! use actix_web::{App, web};
 //! use std::{sync::Arc, time::Duration};
 //!
+//! # #[derive(Clone)]
 //! # struct MyService;
 //! # impl rmcp::ServerHandler for MyService {
 //! #     fn get_info(&self) -> rmcp::model::ServerInfo { rmcp::model::ServerInfo::default() }
 //! # }
 //! # impl MyService { fn new() -> Self { Self } }
-//! // Both services use identical builder pattern
-//! let sse_service = SseService::builder()
-//!     .service_factory(Arc::new(|| Ok(MyService::new())))
-//!     .sse_path("/events".to_string())
-//!     .post_path("/messages".to_string())
-//!     .build();
+//! # use actix_web::HttpServer;
+//! # #[actix_web::main]
+//! # async fn main() -> std::io::Result<()> {
+//! HttpServer::new(|| {
+//!     // Both services use identical builder pattern
+//!     let sse_service = SseService::builder()
+//!         .service_factory(Arc::new(|| Ok(MyService::new())))
+//!         .sse_path("/events".to_string())
+//!         .post_path("/messages".to_string())
+//!         .build();
 //!
-//! let http_service = Arc::new(
-//!     StreamableHttpService::builder()
+//!     let http_service = StreamableHttpService::builder()
 //!         .service_factory(Arc::new(|| Ok(MyService::new())))
 //!         .session_manager(Arc::new(LocalSessionManager::default()))
 //!         .stateful_mode(true)
-//!         .build(),
-//! );
+//!         .build();
 //!
-//! // Both services mount identically via scope()
-//! let app = App::new()
-//!     .service(web::scope("/api/sse").service(sse_service.scope()))
-//!     .service(web::scope("/api/http").service(http_service.scope()));
+//!     // Both services mount identically via scope()
+//!     App::new()
+//!         .service(web::scope("/api/sse").service(sse_service.scope()))
+//!         .service(web::scope("/api/http").service(http_service.scope()))
+//! }).bind("127.0.0.1:8080")?.run().await
+//! # }
 //! ```
 //!
 //! See the `examples/` directory for complete working examples of composition patterns.

@@ -51,29 +51,27 @@
 //! # impl MyService { fn new() -> Self { Self } }
 //! #[actix_web::main]
 //! async fn main() -> std::io::Result<()> {
-//!     // SSE service with builder pattern
-//!     let sse_service = SseService::builder()
-//!         .service_factory(Arc::new(|| Ok(MyService::new())))
-//!         .sse_path("/events".to_string())
-//!         .post_path("/messages".to_string())
-//!         .sse_keep_alive(Duration::from_secs(30))
-//!         .build();
-//!     
-//!     // StreamableHttp service with builder pattern
-//!     let http_service = Arc::new(
-//!         StreamableHttpService::builder()
+//!     // Both services mount identically via scope() in HttpServer closure
+//!     HttpServer::new(|| {
+//!         // SSE service with builder pattern
+//!         let sse_service = SseService::builder()
+//!             .service_factory(Arc::new(|| Ok(MyService::new())))
+//!             .sse_path("/events".to_string())
+//!             .post_path("/messages".to_string())
+//!             .sse_keep_alive(Duration::from_secs(30))
+//!             .build();
+//!         
+//!         // StreamableHttp service with builder pattern
+//!         let http_service = StreamableHttpService::builder()
 //!             .service_factory(Arc::new(|| Ok(MyService::new())))
 //!             .session_manager(Arc::new(LocalSessionManager::default()))
 //!             .stateful_mode(true)
 //!             .sse_keep_alive(Duration::from_secs(30))
-//!             .build(),
-//!     );
-//!     
-//!     // Both services mount identically via scope()
-//!     HttpServer::new(move || {
+//!             .build();
+//!         
 //!         App::new()
-//!             .service(web::scope("/api/v1/sse").service(sse_service.clone().scope()))
-//!             .service(web::scope("/api/v1/http").service(http_service.clone().scope()))
+//!             .service(web::scope("/api/v1/sse").service(sse_service.scope()))
+//!             .service(web::scope("/api/v1/http").service(http_service.scope()))
 //!     })
 //!     .bind("127.0.0.1:8080")?
 //!     .run()

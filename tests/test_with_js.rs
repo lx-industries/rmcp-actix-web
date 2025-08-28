@@ -93,13 +93,12 @@ async fn test_with_js_streamable_http_client() -> anyhow::Result<()> {
         .wait()
         .await?;
 
-    let http_service = Arc::new(
-        StreamableHttpService::builder()
-            .service_factory(Arc::new(|| Ok(Calculator::new())))
-            .session_manager(Arc::new(LocalSessionManager::default()))
-            .stateful_mode(true)
-            .build(),
-    );
+    // Create service outside closure like SSE test does
+    let http_service = StreamableHttpService::builder()
+        .service_factory(Arc::new(|| Ok(Calculator::new())))
+        .session_manager(Arc::new(LocalSessionManager::default()))
+        .stateful_mode(true)
+        .build();
 
     let server = actix_web::HttpServer::new(move || {
         actix_web::App::new()
