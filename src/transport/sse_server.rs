@@ -85,6 +85,7 @@ struct AppData {
     txs: TxStore,
     transport_tx: tokio::sync::mpsc::UnboundedSender<SseServerTransport>,
     post_path: Arc<str>,
+    sse_path: Arc<str>,
     sse_ping_interval: Duration,
 }
 
@@ -123,7 +124,7 @@ async fn post_event_handler(
     Ok(HttpResponse::Accepted().finish())
 }
 
-async fn sse_handler(app_data: Data<AppData>, _req: HttpRequest) -> Result<HttpResponse> {
+async fn sse_handler(app_data: Data<AppData>, req: HttpRequest) -> Result<HttpResponse> {
     let session = session_id();
     tracing::info!(%session, "sse connection");
 
@@ -158,11 +159,21 @@ async fn sse_handler(app_data: Data<AppData>, _req: HttpRequest) -> Result<HttpR
     let ping_interval = app_data.sse_ping_interval;
     let session_for_stream = session.clone();
 
+    // Get the current path prefix from the request (remove the SSE endpoint part)
+    let current_path = req.path();
+    let sse_endpoint = &app_data.sse_path;
+    let path_prefix = if current_path.ends_with(sse_endpoint.as_ref()) {
+        &current_path[..current_path.len() - sse_endpoint.len()]
+    } else {
+        current_path
+    };
+    let relative_post_path = format!("{}{}", path_prefix, post_path);
+
     // Create SSE response stream
     let sse_stream = async_stream::stream! {
         // Send initial endpoint message
         yield Ok::<_, actix_web::Error>(Bytes::from(format!(
-            "event: endpoint\ndata: {post_path}?sessionId={session_for_stream}\n\n"
+            "event: endpoint\ndata: {}?sessionId={}\n\n", relative_post_path, session_for_stream
         )));
 
         // Set up ping interval
@@ -400,6 +411,7 @@ where
             txs: self.shared_txs.clone(),
             transport_tx,
             post_path: self.post_path.clone().into(),
+            sse_path: self.sse_path.clone().into(),
             sse_ping_interval: self.sse_keep_alive.unwrap_or(DEFAULT_AUTO_PING_INTERVAL),
         };
 
