@@ -1,3 +1,10 @@
+## [0.4.1](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.4.0...v0.4.1) (2025-08-29)
+
+
+### Bug Fixes
+
+* include scope path in SSE endpoint event URL ([0922c3b](https://gitlab.com/lx-industries/rmcp-actix-web/commit/0922c3ba340693e39266c287a8af29071d24af1b)), closes [#21](https://gitlab.com/lx-industries/rmcp-actix-web/issues/21)
+
 ## [0.4.0](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.3.0...v0.4.0) (2025-08-28)
 
 
