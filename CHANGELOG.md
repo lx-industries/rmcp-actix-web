@@ -1,3 +1,11 @@
+## [0.4.2](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.4.1...v0.4.2) (2025-08-30)
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate rmcp to v0.6.1 ([45bccc2](https://gitlab.com/lx-industries/rmcp-actix-web/commit/45bccc256353da0eddf869013415d70f938e21f1)), closes [#22](https://gitlab.com/lx-industries/rmcp-actix-web/issues/22)
+* **deps:** update rust:1.89.0 docker digest to 3329e2d ([551de5b](https://gitlab.com/lx-industries/rmcp-actix-web/commit/551de5b69b3f5dfa2c34610ab60c58913e12160c))
+
 ## [0.4.1](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.4.0...v0.4.1) (2025-08-29)
 
 
