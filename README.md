@@ -13,6 +13,48 @@ This crate provides actix-web-based transport implementations for the Model Cont
 - **Full MCP compatibility**: Implements the complete MCP protocol specification
 - **RMCP ecosystem alignment**: APIs that follow RMCP patterns for maximum consistency
 
+## Contributing
+
+We welcome contributions to `rmcp-actix-web`! Please follow these guidelines:
+
+### How to Contribute
+
+1. **Fork the repository** on GitLab
+2. **Create a feature branch** from `main`: `git checkout -b feature/my-new-feature`
+3. **Make your changes** and ensure they follow the project's coding standards
+4. **Add tests** for your changes if applicable and run examples to verify functionality
+5. **Run the test suite** to ensure nothing is broken: `cargo test`
+6. **Commit your changes** with clear, descriptive commit messages
+7. **Push to your fork** and **create a merge request**
+
+### Development Setup
+
+```bash
+# Clone your fork
+git clone https://gitlab.com/your-username/rmcp-actix-web.git
+cd rmcp-actix-web
+
+# Build the project
+cargo build --workspace
+
+# Run tests
+cargo test
+
+# Run examples
+cargo run --example counter_sse
+```
+
+### Code Standards
+
+- Follow Rust conventions and use `cargo fmt` to format code
+- Run `cargo clippy --all-targets` to catch common mistakes
+- Add documentation for public APIs
+- Include tests for new functionality
+
+### Reporting Issues
+
+Found a bug or have a feature request? Please report it on our [GitLab issue tracker](https://gitlab.com/lx-industries/rmcp-actix-web/-/issues).
+
 ## Installation
 
 Add this to your `Cargo.toml`:
@@ -168,10 +210,6 @@ Each example includes detailed documentation and curl commands for testing.
 ## License
 
 MIT License - see LICENSE file for details.
-
-## Contributing
-
-This project is part of the Model Context Protocol ecosystem. Contributions are welcome!
 
 ## References
 
