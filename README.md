@@ -43,6 +43,7 @@ rmcp-actix-web = { version = "0.2", default-features = false, features = ["trans
 
 | rmcp-actix-web | rmcp |
 |----------------|------|
+| 0.4.2          | 0.6.1|
 | 0.2.2          | 0.3.0|
 | 0.2.x          | 0.2.x|
 | 0.1.x          | 0.2.x|
@@ -69,7 +70,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .bind("127.0.0.1:8080")?
     .run()
     .await?;
-    
+
     Ok(())
 }
 ```

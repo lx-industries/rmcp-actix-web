@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use rmcp::{
     ServerHandler,
-    handler::server::{router::tool::ToolRouter, tool::Parameters},
+    handler::server::{
+        router::tool::ToolRouter,
+        wrapper::{Json, Parameters},
+    },
     model::{ServerCapabilities, ServerInfo},
     schemars, tool, tool_handler, tool_router,
 };
@@ -60,17 +63,17 @@ impl<DS: DataService> GenericService<DS> {
     }
 
     #[tool(description = "get memory from service")]
-    pub async fn get_data(&self) -> String {
-        self.data_service.get_data()
+    pub async fn get_data(&self) -> Json<String> {
+        Json(self.data_service.get_data())
     }
 
     #[tool(description = "set memory to service")]
     pub async fn set_data(
         &self,
         Parameters(SetDataRequest { data }): Parameters<SetDataRequest>,
-    ) -> String {
+    ) -> Json<String> {
         let new_data = data.clone();
-        format!("Current memory: {new_data}")
+        Json(format!("Current memory: {new_data}"))
     }
 }
 

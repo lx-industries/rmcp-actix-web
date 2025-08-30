@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use rmcp::{
     ErrorData as McpError, RoleServer, ServerHandler,
-    handler::server::{router::tool::ToolRouter, tool::Parameters},
+    handler::server::{router::tool::ToolRouter, wrapper::Parameters},
     model::*,
     schemars,
     service::RequestContext,

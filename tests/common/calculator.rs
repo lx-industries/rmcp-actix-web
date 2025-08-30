@@ -7,8 +7,11 @@
 
 #![allow(dead_code)]
 use rmcp::{
-    Json, ServerHandler,
-    handler::server::{router::tool::ToolRouter, tool::Parameters},
+    ServerHandler,
+    handler::server::{
+        router::tool::ToolRouter,
+        wrapper::{Json, Parameters},
+    },
     model::{ServerCapabilities, ServerInfo},
     schemars, tool, tool_handler, tool_router,
 };
