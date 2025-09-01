@@ -1,3 +1,12 @@
+## [0.4.3](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.4.2...v0.4.3) (2025-09-01)
+
+
+### Miscellaneous Chores
+
+* **deps:** update node.js to v22.19.0 ([226ed11](https://gitlab.com/lx-industries/rmcp-actix-web/commit/226ed11a3d281b1a31c0afa62cbfbd96abbb8a45))
+* **deps:** update rust crate actix-rt to v2.11.0 ([751d11e](https://gitlab.com/lx-industries/rmcp-actix-web/commit/751d11e8607ae9cfcca58fb31999112488cb3921))
+* **deps:** update rust crate tracing-subscriber to v0.3.20 ([dd55343](https://gitlab.com/lx-industries/rmcp-actix-web/commit/dd5534353904a4cd31051656de55d0cd3e7df211))
+
 ## [0.4.2](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.4.1...v0.4.2) (2025-08-30)
 
 
