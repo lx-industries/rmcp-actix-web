@@ -59,7 +59,7 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 use actix_web::{
     HttpRequest, HttpResponse, Result, Scope,
     error::ErrorInternalServerError,
-    http::header::{CACHE_CONTROL, CONTENT_TYPE},
+    http::header::{self, CACHE_CONTROL, CONTENT_TYPE},
     middleware,
     web::{self, Bytes, Data, Json, Query},
 };
@@ -68,9 +68,10 @@ use tokio::sync::Mutex;
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_util::sync::PollSender;
 
+use crate::transport::AuthorizationHeader;
 use rmcp::{
     RoleServer,
-    model::ClientJsonRpcMessage,
+    model::{ClientJsonRpcMessage, GetExtensions},
     service::{RxJsonRpcMessage, TxJsonRpcMessage, serve_directly_with_ct},
     transport::common::server_side_http::{DEFAULT_AUTO_PING_INTERVAL, SessionId, session_id},
 };
@@ -103,11 +104,24 @@ pub struct PostEventQuery {
 async fn post_event_handler(
     app_data: Data<AppData>,
     query: Query<PostEventQuery>,
-    _req: HttpRequest,
-    message: Json<ClientJsonRpcMessage>,
+    req: HttpRequest,
+    mut message: Json<ClientJsonRpcMessage>,
 ) -> Result<HttpResponse> {
     let session_id = &query.session_id;
     tracing::debug!(session_id, ?message, "new client message");
+
+    // Extract and inject Authorization header if present (Bearer tokens only)
+    if let ClientJsonRpcMessage::Request(request_msg) = &mut message.0
+        && let Some(auth_value) = req.headers().get(header::AUTHORIZATION)
+        && let Ok(auth_str) = auth_value.to_str()
+        && auth_str.starts_with("Bearer ")
+    {
+        request_msg
+            .request
+            .extensions_mut()
+            .insert(AuthorizationHeader(auth_str.to_string()));
+        tracing::debug!("Forwarding Authorization header for MCP proxy scenario");
+    }
 
     let tx = {
         let rg = app_data.txs.read().await;

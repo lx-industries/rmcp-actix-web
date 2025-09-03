@@ -5,3 +5,6 @@
 
 /// Calculator service implementation for testing MCP tool functionality.
 pub mod calculator;
+
+/// Test service for verifying Authorization header forwarding.
+pub mod headers_test_service;

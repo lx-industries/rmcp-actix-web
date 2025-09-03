@@ -172,6 +172,9 @@ See the `examples/` directory for complete working examples:
 - `composition_streamable_http_example.rs` - StreamableHttp with custom mounting
 - `multi_service_example.rs` - Multiple MCP services with different transports
 
+### Proxy Examples
+- `authorization_proxy_example.rs` - MCP service acting as a proxy using Authorization headers
+
 ### Running Examples
 
 ```bash
@@ -206,6 +209,12 @@ Each example includes detailed documentation and curl commands for testing.
 - **Middleware Support**: Full integration with actix-web middleware stack
 - **Custom Paths**: Mount services at any path using actix-web's Scope system
 - **Built on actix-web**: Leverages the mature actix-web framework
+
+### Proxy Support
+- **Authorization Forwarding**: Bearer tokens from Authorization headers are forwarded to MCP services
+- **MCP Proxy Pattern**: Enable MCP services to act as proxies to backend APIs
+- **Selective Header Forwarding**: Only forwards Authorization header as per MCP specification
+- **Type-Safe Access**: Access forwarded headers via `RequestContext` extensions
 
 ## License
 

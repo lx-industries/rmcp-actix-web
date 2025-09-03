@@ -73,7 +73,7 @@ use tokio_stream::wrappers::ReceiverStream;
 
 use rmcp::{
     RoleServer,
-    model::{ClientJsonRpcMessage, ClientRequest},
+    model::{ClientJsonRpcMessage, ClientRequest, GetExtensions},
     serve_server,
     service::serve_directly,
     transport::{
@@ -82,6 +82,8 @@ use rmcp::{
         streamable_http_server::session::SessionManager,
     },
 };
+
+use super::AuthorizationHeader;
 
 // Local constants
 const HEADER_X_ACCEL_BUFFERING: &str = "X-Accel-Buffering";
@@ -538,11 +540,22 @@ where
 
                 tracing::info!(%session_id, "Created new session");
 
-                if let ClientJsonRpcMessage::Request(req) = &mut message {
-                    if !matches!(req.request, ClientRequest::InitializeRequest(_)) {
+                if let ClientJsonRpcMessage::Request(request_msg) = &mut message {
+                    if !matches!(request_msg.request, ClientRequest::InitializeRequest(_)) {
                         return Ok(
                             HttpResponse::UnprocessableEntity().body("Expected initialize request")
                         );
+                    }
+
+                    // Extract and inject Authorization header if present
+                    if let Some(auth_value) = req.headers().get(header::AUTHORIZATION)
+                        && let Ok(auth_str) = auth_value.to_str()
+                        && auth_str.starts_with("Bearer ")
+                    {
+                        request_msg
+                            .request
+                            .extensions_mut()
+                            .insert(AuthorizationHeader(auth_str.to_string()));
                     }
                 } else {
                     return Ok(
@@ -608,8 +621,19 @@ where
             tracing::debug!("POST request in stateless mode");
 
             match message {
-                ClientJsonRpcMessage::Request(request) => {
+                ClientJsonRpcMessage::Request(mut request) => {
                     tracing::debug!(?request, "Processing request in stateless mode");
+
+                    // Extract and inject Authorization header if present
+                    if let Some(auth_value) = req.headers().get(header::AUTHORIZATION)
+                        && let Ok(auth_str) = auth_value.to_str()
+                        && auth_str.starts_with("Bearer ")
+                    {
+                        request
+                            .request
+                            .extensions_mut()
+                            .insert(AuthorizationHeader(auth_str.to_string()));
+                    }
 
                     // In stateless mode, handle the request directly
                     let service_instance = service

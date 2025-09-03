@@ -99,3 +99,32 @@ pub mod sse_server;
 /// Provides bidirectional communication with session management.
 #[cfg(feature = "transport-streamable-http-server")]
 pub mod streamable_http_server;
+
+/// Authorization header value for MCP proxy scenarios.
+///
+/// This type is used to pass Authorization headers from HTTP requests
+/// to MCP services via RequestContext extensions. This enables MCP services
+/// to act as proxies, forwarding authentication tokens to backend APIs.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// // In an MCP service handler:
+/// use rmcp_actix_web::transport::AuthorizationHeader;
+///
+/// async fn handle_request(
+///     &self,
+///     request: SomeRequest,
+///     context: RequestContext<RoleServer>,
+/// ) -> Result<Response, McpError> {
+///     // Extract the Authorization header if present
+///     if let Some(auth) = context.extensions.get::<AuthorizationHeader>() {
+///         // Use auth.0 to access the header value (e.g., "Bearer token123")
+///         let token = &auth.0;
+///         // Forward to backend API...
+///     }
+///     // ...
+/// }
+/// ```
+#[derive(Clone, Debug)]
+pub struct AuthorizationHeader(pub String);
