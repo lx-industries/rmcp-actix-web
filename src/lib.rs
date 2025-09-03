@@ -13,7 +13,7 @@
 //!
 //! ## Features
 //!
-//! - **[SSE (Server-Sent Events) Transport][SseServer]**: Real-time, unidirectional communication from server to client
+//! - **[SSE (Server-Sent Events) Transport][SseService]**: Real-time, unidirectional communication from server to client
 //! - **[Streamable HTTP Transport][StreamableHttpService]**: Bidirectional communication with session management
 //! - **Full MCP Compatibility**: Implements the complete MCP specification
 //! - **Drop-in Replacement**: Same service implementations work with either Axum or actix-web transports
