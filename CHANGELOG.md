@@ -1,3 +1,15 @@
+## [0.5.0](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.4.3...v0.5.0) (2025-09-03)
+
+
+### Features
+
+* forward Authorization header for MCP proxy scenarios ([36c6cc7](https://gitlab.com/lx-industries/rmcp-actix-web/commit/36c6cc7e0a9b8ba2805f75d6bc1b8d140c7ed7d8))
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate bon to v3.7.2 ([8367e0a](https://gitlab.com/lx-industries/rmcp-actix-web/commit/8367e0a2347d415010a09ec8c60034a5323ce62c))
+
 ## [0.4.3](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.4.2...v0.4.3) (2025-09-01)
 
 
