@@ -1,3 +1,15 @@
+## [0.6.0](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.5.0...v0.6.0) (2025-09-04)
+
+
+### Features
+
+* add authorization-token-passthrough feature flag ([8ac7ff1](https://gitlab.com/lx-industries/rmcp-actix-web/commit/8ac7ff1aef6ceef2e42bc451971031c985b9a4cc))
+
+
+### Bug Fixes
+
+* forward Authorization header for existing sessions in stateful mode ([a21d49e](https://gitlab.com/lx-industries/rmcp-actix-web/commit/a21d49edb8720c313b0c150804fb0a0162f392dc))
+
 ## [0.5.0](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.4.3...v0.5.0) (2025-09-03)
 
 
