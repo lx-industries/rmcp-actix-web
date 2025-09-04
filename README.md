@@ -13,6 +13,10 @@ This crate provides actix-web-based transport implementations for the Model Cont
 - **Full MCP compatibility**: Implements the complete MCP protocol specification
 - **RMCP ecosystem alignment**: APIs that follow RMCP patterns for maximum consistency
 
+## ⚠️ Security Notice
+
+This transport forwards Authorization headers to MCP services. If your MCP service passes these tokens to upstream APIs (proxy pattern), be aware this violates MCP specifications. See [SECURITY.md](SECURITY.md) for details.
+
 ## Contributing
 
 We welcome contributions to `rmcp-actix-web`! Please follow these guidelines:
