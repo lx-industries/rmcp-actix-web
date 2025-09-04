@@ -22,6 +22,8 @@ use tokio::sync::Mutex;
 pub struct HeadersTestService {
     /// Stores Authorization header received during initialization
     captured_authorization: Arc<Mutex<Option<String>>>,
+    /// Stores Authorization header from the most recent tool call
+    last_tool_authorization: Arc<Mutex<Option<String>>>,
     /// Router for tool dispatch
     tool_router: ToolRouter<HeadersTestService>,
 }
@@ -31,6 +33,7 @@ impl HeadersTestService {
     pub fn new() -> Self {
         Self {
             captured_authorization: Arc::new(Mutex::new(None)),
+            last_tool_authorization: Arc::new(Mutex::new(None)),
             tool_router: Self::tool_router(),
         }
     }
@@ -50,6 +53,35 @@ impl HeadersTestService {
         } else {
             Ok(CallToolResult::success(vec![Content::text(
                 "No Authorization header captured",
+            )]))
+        }
+    }
+
+    /// Returns the Authorization header from the current request
+    #[tool(description = "Get the Authorization header from the current tool call request")]
+    async fn get_current_auth(
+        &self,
+        context: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, McpError> {
+        // Extract Authorization header from the current request's context
+        if let Some(auth) = context.extensions.get::<AuthorizationHeader>() {
+            // Store it for verification
+            let mut last_auth = self.last_tool_authorization.lock().await;
+            *last_auth = Some(auth.0.clone());
+
+            Ok(CallToolResult::success(vec![Content::text(
+                json!({
+                    "authorization": auth.0
+                })
+                .to_string(),
+            )]))
+        } else {
+            Ok(CallToolResult::success(vec![Content::text(
+                json!({
+                    "authorization": null,
+                    "message": "No Authorization header in current request"
+                })
+                .to_string(),
             )]))
         }
     }

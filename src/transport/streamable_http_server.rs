@@ -458,10 +458,57 @@ where
                 // but session_id is already available through headers
 
                 match message {
-                    ClientJsonRpcMessage::Request(_) => {
+                    ClientJsonRpcMessage::Request(mut request_msg) => {
+                        // Extract and inject Authorization header for existing sessions.
+                        //
+                        // SECURITY: This proxy forwards Authorization headers WITHOUT validation.
+                        // Downstream MCP services MUST validate tokens according to OAuth 2.1 Section 5.2
+                        // to prevent confused deputy vulnerabilities.
+                        //
+                        // Supports OAuth 2.1 token rotation patterns by forwarding each request's
+                        // Authorization independently. This enables:
+                        // - Token rotation within sessions (security best practice)
+                        // - Token refresh when access tokens expire
+                        // - Scope changes for different operations within the same session
+                        //
+                        // The proxy does NOT cache or reuse tokens from session initialization.
+                        // Each request must provide its own valid Authorization header.
+                        if let Some(auth_value) = req.headers().get(header::AUTHORIZATION) {
+                            match auth_value.to_str() {
+                                Ok(auth_str)
+                                    if auth_str.starts_with("Bearer ") && auth_str.len() > 7 =>
+                                {
+                                    request_msg
+                                        .request
+                                        .extensions_mut()
+                                        .insert(AuthorizationHeader(auth_str.to_string()));
+                                }
+                                Ok(auth_str) if auth_str == "Bearer" || auth_str == "Bearer " => {
+                                    tracing::debug!(
+                                        "Malformed Bearer token in existing session: missing token value"
+                                    );
+                                }
+                                Ok(auth_str) if !auth_str.starts_with("Bearer ") => {
+                                    let auth_type =
+                                        auth_str.split_whitespace().next().unwrap_or("unknown");
+                                    tracing::warn!(
+                                        "Non-Bearer authorization header ignored for existing session: {}",
+                                        auth_type
+                                    );
+                                }
+                                Err(e) => {
+                                    tracing::debug!(
+                                        "Invalid Authorization header encoding in existing session: {}",
+                                        e
+                                    );
+                                }
+                                _ => {}
+                            }
+                        }
+
                         let stream = service
                             .session_manager
-                            .create_stream(&session_id, message)
+                            .create_stream(&session_id, ClientJsonRpcMessage::Request(request_msg))
                             .await
                             .map_err(|e| {
                                 InternalError::new(e, StatusCode::INTERNAL_SERVER_ERROR)
@@ -548,14 +595,40 @@ where
                     }
 
                     // Extract and inject Authorization header if present
-                    if let Some(auth_value) = req.headers().get(header::AUTHORIZATION)
-                        && let Ok(auth_str) = auth_value.to_str()
-                        && auth_str.starts_with("Bearer ")
-                    {
-                        request_msg
-                            .request
-                            .extensions_mut()
-                            .insert(AuthorizationHeader(auth_str.to_string()));
+                    // SECURITY: This proxy forwards Authorization headers WITHOUT validation.
+                    // Downstream MCP services MUST validate tokens according to OAuth 2.1 Section 5.2
+                    // to prevent confused deputy vulnerabilities.
+                    if let Some(auth_value) = req.headers().get(header::AUTHORIZATION) {
+                        match auth_value.to_str() {
+                            Ok(auth_str)
+                                if auth_str.starts_with("Bearer ") && auth_str.len() > 7 =>
+                            {
+                                request_msg
+                                    .request
+                                    .extensions_mut()
+                                    .insert(AuthorizationHeader(auth_str.to_string()));
+                            }
+                            Ok(auth_str) if auth_str == "Bearer" || auth_str == "Bearer " => {
+                                tracing::debug!(
+                                    "Malformed Bearer token in new session: missing token value"
+                                );
+                            }
+                            Ok(auth_str) if !auth_str.starts_with("Bearer ") => {
+                                let auth_type =
+                                    auth_str.split_whitespace().next().unwrap_or("unknown");
+                                tracing::warn!(
+                                    "Non-Bearer authorization header ignored for new session: {}",
+                                    auth_type
+                                );
+                            }
+                            Err(e) => {
+                                tracing::debug!(
+                                    "Invalid Authorization header encoding in new session: {}",
+                                    e
+                                );
+                            }
+                            _ => {}
+                        }
                     }
                 } else {
                     return Ok(
@@ -625,14 +698,40 @@ where
                     tracing::debug!(?request, "Processing request in stateless mode");
 
                     // Extract and inject Authorization header if present
-                    if let Some(auth_value) = req.headers().get(header::AUTHORIZATION)
-                        && let Ok(auth_str) = auth_value.to_str()
-                        && auth_str.starts_with("Bearer ")
-                    {
-                        request
-                            .request
-                            .extensions_mut()
-                            .insert(AuthorizationHeader(auth_str.to_string()));
+                    // SECURITY: This proxy forwards Authorization headers WITHOUT validation.
+                    // Downstream MCP services MUST validate tokens according to OAuth 2.1 Section 5.2
+                    // to prevent confused deputy vulnerabilities.
+                    if let Some(auth_value) = req.headers().get(header::AUTHORIZATION) {
+                        match auth_value.to_str() {
+                            Ok(auth_str)
+                                if auth_str.starts_with("Bearer ") && auth_str.len() > 7 =>
+                            {
+                                request
+                                    .request
+                                    .extensions_mut()
+                                    .insert(AuthorizationHeader(auth_str.to_string()));
+                            }
+                            Ok(auth_str) if auth_str == "Bearer" || auth_str == "Bearer " => {
+                                tracing::debug!(
+                                    "Malformed Bearer token in stateless mode: missing token value"
+                                );
+                            }
+                            Ok(auth_str) if !auth_str.starts_with("Bearer ") => {
+                                let auth_type =
+                                    auth_str.split_whitespace().next().unwrap_or("unknown");
+                                tracing::warn!(
+                                    "Non-Bearer authorization header ignored in stateless mode: {}",
+                                    auth_type
+                                );
+                            }
+                            Err(e) => {
+                                tracing::debug!(
+                                    "Invalid Authorization header encoding in stateless mode: {}",
+                                    e
+                                );
+                            }
+                            _ => {}
+                        }
                     }
 
                     // In stateless mode, handle the request directly
