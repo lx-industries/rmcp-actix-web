@@ -215,10 +215,11 @@ Each example includes detailed documentation and curl commands for testing.
 - **Built on actix-web**: Leverages the mature actix-web framework
 
 ### Proxy Support
-- **Authorization Forwarding**: Bearer tokens from Authorization headers are forwarded to MCP services
+- **Authorization Forwarding**: Bearer tokens from Authorization headers can be forwarded to MCP services (requires `authorization-token-passthrough` feature)
 - **MCP Proxy Pattern**: Enable MCP services to act as proxies to backend APIs
-- **Selective Header Forwarding**: Only forwards Authorization header as per MCP specification
+- **Selective Header Forwarding**: Only forwards Authorization header when feature is enabled
 - **Type-Safe Access**: Access forwarded headers via `RequestContext` extensions
+- **Security Notice**: Token passthrough violates MCP specifications - see [SECURITY.md](SECURITY.md) for important details
 
 ## License
 
