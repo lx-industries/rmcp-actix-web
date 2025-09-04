@@ -461,9 +461,15 @@ where
                     ClientJsonRpcMessage::Request(mut request_msg) => {
                         // Extract and inject Authorization header for existing sessions.
                         //
-                        // SECURITY: This proxy forwards Authorization headers WITHOUT validation.
-                        // Downstream MCP services MUST validate tokens according to OAuth 2.1 Section 5.2
-                        // to prevent confused deputy vulnerabilities.
+                        // SECURITY: This transport forwards Authorization headers to MCP services.
+                        //
+                        // MCP-COMPLIANT USAGE: MCP services MUST validate these tokens as intended for themselves
+                        // and MUST NOT forward them to upstream APIs (per MCP specification).
+                        //
+                        // NON-COMPLIANT USAGE: Some implementations (e.g., rmcp-openapi-server) use these tokens
+                        // for upstream API authentication. This violates MCP specifications but may be necessary
+                        // for certain proxy architectures. Use with caution and ensure proper token audience validation.
+                        // See SECURITY.md for details.
                         //
                         // Supports OAuth 2.1 token rotation patterns by forwarding each request's
                         // Authorization independently. This enables:
@@ -595,9 +601,16 @@ where
                     }
 
                     // Extract and inject Authorization header if present
-                    // SECURITY: This proxy forwards Authorization headers WITHOUT validation.
-                    // Downstream MCP services MUST validate tokens according to OAuth 2.1 Section 5.2
-                    // to prevent confused deputy vulnerabilities.
+                    //
+                    // SECURITY: This transport forwards Authorization headers to MCP services.
+                    //
+                    // MCP-COMPLIANT USAGE: MCP services MUST validate these tokens as intended for themselves
+                    // and MUST NOT forward them to upstream APIs (per MCP specification).
+                    //
+                    // NON-COMPLIANT USAGE: Some implementations (e.g., rmcp-openapi-server) use these tokens
+                    // for upstream API authentication. This violates MCP specifications but may be necessary
+                    // for certain proxy architectures. Use with caution and ensure proper token audience validation.
+                    // See SECURITY.md for details.
                     if let Some(auth_value) = req.headers().get(header::AUTHORIZATION) {
                         match auth_value.to_str() {
                             Ok(auth_str)
@@ -698,9 +711,16 @@ where
                     tracing::debug!(?request, "Processing request in stateless mode");
 
                     // Extract and inject Authorization header if present
-                    // SECURITY: This proxy forwards Authorization headers WITHOUT validation.
-                    // Downstream MCP services MUST validate tokens according to OAuth 2.1 Section 5.2
-                    // to prevent confused deputy vulnerabilities.
+                    //
+                    // SECURITY: This transport forwards Authorization headers to MCP services.
+                    //
+                    // MCP-COMPLIANT USAGE: MCP services MUST validate these tokens as intended for themselves
+                    // and MUST NOT forward them to upstream APIs (per MCP specification).
+                    //
+                    // NON-COMPLIANT USAGE: Some implementations (e.g., rmcp-openapi-server) use these tokens
+                    // for upstream API authentication. This violates MCP specifications but may be necessary
+                    // for certain proxy architectures. Use with caution and ensure proper token audience validation.
+                    // See SECURITY.md for details.
                     if let Some(auth_value) = req.headers().get(header::AUTHORIZATION) {
                         match auth_value.to_str() {
                             Ok(auth_str)
