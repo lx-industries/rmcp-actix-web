@@ -15,6 +15,11 @@ default = ["transport-sse-server", "transport-streamable-http-server"]
 transport-sse-server = ["rmcp/transport-sse-server"]
 transport-streamable-http-server = ["rmcp/transport-streamable-http-server"]
 
+# Enable this if your MCP service will forward tokens to upstream APIs (non-compliant).
+# This violates MCP specifications but may be necessary for proxy architectures.
+# See SECURITY.md for important security implications.
+authorization-token-passthrough = []
+
 [dependencies]
 rmcp = { version = "0.6.1", features = ["base64", "server"] }
 actix-web = "4"

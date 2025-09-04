@@ -73,7 +73,7 @@ use tokio_stream::wrappers::ReceiverStream;
 
 use rmcp::{
     RoleServer,
-    model::{ClientJsonRpcMessage, ClientRequest, GetExtensions},
+    model::{ClientJsonRpcMessage, ClientRequest},
     serve_server,
     service::serve_directly,
     transport::{
@@ -83,6 +83,10 @@ use rmcp::{
     },
 };
 
+#[cfg(feature = "authorization-token-passthrough")]
+use rmcp::model::GetExtensions;
+
+#[cfg(feature = "authorization-token-passthrough")]
 use super::AuthorizationHeader;
 
 // Local constants
@@ -458,6 +462,7 @@ where
                 // but session_id is already available through headers
 
                 match message {
+                    #[allow(unused_mut)]
                     ClientJsonRpcMessage::Request(mut request_msg) => {
                         // Extract and inject Authorization header for existing sessions.
                         //
@@ -479,11 +484,17 @@ where
                         //
                         // The proxy does NOT cache or reuse tokens from session initialization.
                         // Each request must provide its own valid Authorization header.
+                        #[cfg(feature = "authorization-token-passthrough")]
                         if let Some(auth_value) = req.headers().get(header::AUTHORIZATION) {
                             match auth_value.to_str() {
                                 Ok(auth_str)
                                     if auth_str.starts_with("Bearer ") && auth_str.len() > 7 =>
                                 {
+                                    tracing::debug!(
+                                        "Forwarding Authorization header to MCP service for existing session. \
+                                         Note: MCP services must not pass this token to upstream APIs per MCP spec. \
+                                         See SECURITY.md for details."
+                                    );
                                     request_msg
                                         .request
                                         .extensions_mut()
@@ -510,6 +521,15 @@ where
                                 }
                                 _ => {}
                             }
+                        }
+
+                        #[cfg(not(feature = "authorization-token-passthrough"))]
+                        if req.headers().get(header::AUTHORIZATION).is_some() {
+                            tracing::warn!(
+                                "Authorization header present but not forwarded. \
+                                 Enable 'authorization-token-passthrough' feature to forward tokens to MCP services. \
+                                 Note: Token passthrough violates MCP specifications. See SECURITY.md for details."
+                            );
                         }
 
                         let stream = service
@@ -611,11 +631,17 @@ where
                     // for upstream API authentication. This violates MCP specifications but may be necessary
                     // for certain proxy architectures. Use with caution and ensure proper token audience validation.
                     // See SECURITY.md for details.
+                    #[cfg(feature = "authorization-token-passthrough")]
                     if let Some(auth_value) = req.headers().get(header::AUTHORIZATION) {
                         match auth_value.to_str() {
                             Ok(auth_str)
                                 if auth_str.starts_with("Bearer ") && auth_str.len() > 7 =>
                             {
+                                tracing::debug!(
+                                    "Forwarding Authorization header to MCP service for new session. \
+                                     Note: MCP services must not pass this token to upstream APIs per MCP spec. \
+                                     See SECURITY.md for details."
+                                );
                                 request_msg
                                     .request
                                     .extensions_mut()
@@ -642,6 +668,15 @@ where
                             }
                             _ => {}
                         }
+                    }
+
+                    #[cfg(not(feature = "authorization-token-passthrough"))]
+                    if req.headers().get(header::AUTHORIZATION).is_some() {
+                        tracing::warn!(
+                            "Authorization header present but not forwarded for new session. \
+                             Enable 'authorization-token-passthrough' feature to forward tokens to MCP services. \
+                             Note: Token passthrough violates MCP specifications. See SECURITY.md for details."
+                        );
                     }
                 } else {
                     return Ok(
@@ -707,6 +742,7 @@ where
             tracing::debug!("POST request in stateless mode");
 
             match message {
+                #[allow(unused_mut)]
                 ClientJsonRpcMessage::Request(mut request) => {
                     tracing::debug!(?request, "Processing request in stateless mode");
 
@@ -721,11 +757,17 @@ where
                     // for upstream API authentication. This violates MCP specifications but may be necessary
                     // for certain proxy architectures. Use with caution and ensure proper token audience validation.
                     // See SECURITY.md for details.
+                    #[cfg(feature = "authorization-token-passthrough")]
                     if let Some(auth_value) = req.headers().get(header::AUTHORIZATION) {
                         match auth_value.to_str() {
                             Ok(auth_str)
                                 if auth_str.starts_with("Bearer ") && auth_str.len() > 7 =>
                             {
+                                tracing::debug!(
+                                    "Forwarding Authorization header to MCP service in stateless mode. \
+                                     Note: MCP services must not pass this token to upstream APIs per MCP spec. \
+                                     See SECURITY.md for details."
+                                );
                                 request
                                     .request
                                     .extensions_mut()
@@ -752,6 +794,15 @@ where
                             }
                             _ => {}
                         }
+                    }
+
+                    #[cfg(not(feature = "authorization-token-passthrough"))]
+                    if req.headers().get(header::AUTHORIZATION).is_some() {
+                        tracing::warn!(
+                            "Authorization header present but not forwarded in stateless mode. \
+                             Enable 'authorization-token-passthrough' feature to forward tokens to MCP services. \
+                             Note: Token passthrough violates MCP specifications. See SECURITY.md for details."
+                        );
                     }
 
                     // In stateless mode, handle the request directly

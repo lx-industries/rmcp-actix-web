@@ -64,7 +64,12 @@ test:
   extends: .rust-template
   stage: test
   script:
+    # Test with default features
     - cargo test --verbose -- --skip test_with_js --skip test_with_python
+    # Test with authorization-token-passthrough feature enabled
+    - cargo test --verbose --features authorization-token-passthrough -- --skip test_with_js --skip test_with_python
+    # Test with all features
+    - cargo test --verbose --all-features -- --skip test_with_js --skip test_with_python
   cache:
     - <<: *cargo-registry-cache
     - <<: *cargo-build-cache

@@ -46,6 +46,7 @@ async fn extract_auth_from_sse_response(response: Response) -> Option<String> {
     None
 }
 
+#[cfg(feature = "authorization-token-passthrough")]
 #[actix_web::test]
 async fn test_authorization_forwarded_in_streamable_http_stateless() {
     // Initialize tracing for debugging
@@ -154,6 +155,7 @@ async fn test_authorization_forwarded_in_streamable_http_stateless() {
     server_task.abort();
 }
 
+#[cfg(feature = "authorization-token-passthrough")]
 #[actix_web::test]
 async fn test_authorization_forwarded_in_streamable_http_stateful() {
     // Initialize tracing for debugging
@@ -329,6 +331,7 @@ async fn test_authorization_forwarded_in_streamable_http_stateful() {
     server_task.abort();
 }
 
+#[cfg(feature = "authorization-token-passthrough")]
 #[actix_web::test]
 async fn test_malformed_bearer_tokens_not_forwarded() {
     let _ = tracing_subscriber::fmt()
