@@ -89,6 +89,7 @@ rmcp-actix-web = { version = "0.2", default-features = false, features = ["trans
 
 | rmcp-actix-web | rmcp |
 |----------------|------|
+| 0.6.1          | 0.6.3|
 | 0.4.2          | 0.6.1|
 | 0.2.2          | 0.3.0|
 | 0.2.x          | 0.2.x|
