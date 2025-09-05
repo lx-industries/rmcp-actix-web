@@ -595,11 +595,6 @@ where
 
                         Ok(HttpResponse::Accepted().finish())
                     }
-                    ClientJsonRpcMessage::BatchRequest(_)
-                    | ClientJsonRpcMessage::BatchResponse(_) => {
-                        Ok(HttpResponse::NotImplemented()
-                            .body("Batch requests are not supported yet"))
-                    }
                 }
             } else {
                 // No session id in stateful mode - create new session
