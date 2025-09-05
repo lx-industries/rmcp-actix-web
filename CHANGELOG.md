@@ -1,3 +1,11 @@
+## [0.6.1](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.6.0...v0.6.1) (2025-09-05)
+
+
+### Miscellaneous Chores
+
+* **deps:** update rmcp to version 0.6.3 and fix compilation errors ([73413dc](https://gitlab.com/lx-industries/rmcp-actix-web/commit/73413dc6983312d59b350f49ce87deb70eb423cd)), closes [#28](https://gitlab.com/lx-industries/rmcp-actix-web/issues/28)
+* **deps:** update rust crate insta to v1.43.2 ([ccc6cea](https://gitlab.com/lx-industries/rmcp-actix-web/commit/ccc6cea3928029b38b55db6aa2a2f7e201a2443b))
+
 ## [0.6.0](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.5.0...v0.6.0) (2025-09-04)
 
 
