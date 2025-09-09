@@ -31,7 +31,7 @@
 //! ```
 
 use actix_web::{App, HttpResponse, HttpServer, Result, middleware, web};
-use rmcp_actix_web::SseService;
+use rmcp_actix_web::transport::SseService;
 use std::{sync::Arc, time::Duration};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 

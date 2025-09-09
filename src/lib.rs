@@ -24,7 +24,7 @@
 //! ### SSE Service Example
 //!
 //! ```rust,no_run
-//! use rmcp_actix_web::SseService;
+//! use rmcp_actix_web::transport::SseService;
 //! use actix_web::{App, HttpServer};
 //! use std::time::Duration;
 //!
@@ -52,7 +52,7 @@
 //!     .bind("127.0.0.1:8080")?
 //!     .run()
 //!     .await?;
-//!     
+//!
 //!     Ok(())
 //! }
 //! ```
@@ -60,7 +60,7 @@
 //! ### Streamable HTTP Server Example
 //!
 //! ```rust,no_run
-//! use rmcp_actix_web::StreamableHttpService;
+//! use rmcp_actix_web::transport::{StreamableHttpService, AuthorizationHeader};
 //! use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 //! use rmcp::{ServerHandler, model::ServerInfo};
 //! use actix_web::{App, HttpServer};
@@ -90,7 +90,7 @@
 //!     .bind("127.0.0.1:8080")?
 //!     .run()
 //!     .await?;
-//!     
+//!
 //!     Ok(())
 //! }
 //! ```
@@ -119,7 +119,7 @@
 //! ### SSE Service Composition
 //!
 //! ```rust,no_run
-//! use rmcp_actix_web::SseService;
+//! use rmcp_actix_web::transport::SseService;
 //! use actix_web::{App, web};
 //! use std::time::Duration;
 //!
@@ -144,7 +144,7 @@
 //! ### StreamableHttp Service Composition
 //!
 //! ```rust,no_run
-//! use rmcp_actix_web::StreamableHttpService;
+//! use rmcp_actix_web::transport::{StreamableHttpService, AuthorizationHeader};
 //! use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 //! use actix_web::{App, web};
 //! use std::{sync::Arc, time::Duration};
@@ -177,7 +177,7 @@
 //! ### Multi-Service Composition
 //!
 //! ```rust,no_run
-//! use rmcp_actix_web::{SseService, StreamableHttpService};
+//! use rmcp_actix_web::transport::{SseService, StreamableHttpService};
 //! use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 //! use actix_web::{App, web};
 //! use std::{sync::Arc, time::Duration};
@@ -237,40 +237,3 @@
 //! ```
 
 pub mod transport;
-
-// Direct exports of main types
-
-/// Server-Sent Events (SSE) transport service implementation.
-///
-/// Provides real-time, unidirectional communication from server to client using
-/// the SSE protocol. Ideal for streaming updates, notifications, and real-time data.
-///
-/// Uses a builder pattern for configuration and integrates seamlessly with actix-web.
-///
-/// See the [module documentation](transport::sse_server) for more details.
-#[cfg(feature = "transport-sse-server")]
-pub use transport::sse_server::SseService;
-
-/// Streamable HTTP transport service for actix-web integration.
-///
-/// Provides bidirectional communication with session management using a custom
-/// HTTP streaming protocol. Supports both request/response and streaming patterns.
-///
-/// See the [module documentation](transport::streamable_http_server) for more details.
-#[cfg(feature = "transport-streamable-http-server")]
-pub use transport::streamable_http_server::StreamableHttpService;
-
-// Re-exports of configuration types from rmcp
-
-/// Unique identifier for client sessions in server-side HTTP transports.
-///
-/// Used by both SSE and Streamable HTTP transports to track individual client connections.
-pub use rmcp::transport::common::server_side_http::SessionId;
-
-// Note: SseServerConfig removed in favor of builder pattern
-
-/// Configuration for the streamable HTTP server transport.
-///
-/// Currently uses default configuration. Future versions may add customization options.
-#[cfg(feature = "transport-streamable-http-server")]
-pub use rmcp::transport::streamable_http_server::StreamableHttpServerConfig;

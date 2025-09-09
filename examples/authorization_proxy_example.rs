@@ -31,7 +31,7 @@ use rmcp::{
     ErrorData as McpError, RoleServer, ServerHandler, handler::server::router::tool::ToolRouter,
     model::*, service::RequestContext, tool, tool_handler, tool_router,
 };
-use rmcp_actix_web::{StreamableHttpService, transport::AuthorizationHeader};
+use rmcp_actix_web::transport::{AuthorizationHeader, StreamableHttpService};
 use serde_json::json;
 use std::sync::Arc;
 use tokio::sync::Mutex;

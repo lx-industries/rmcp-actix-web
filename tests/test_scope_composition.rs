@@ -7,7 +7,7 @@ use std::{sync::Arc, time::Duration};
 
 use actix_web::{App, test, web};
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
-use rmcp_actix_web::{SseService, StreamableHttpService};
+use rmcp_actix_web::transport::{SseService, StreamableHttpService};
 
 mod common;
 use common::calculator::Calculator;

@@ -1,5 +1,5 @@
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
-use rmcp_actix_web::{SseService, StreamableHttpService};
+use rmcp_actix_web::transport::{SseService, StreamableHttpService};
 use std::sync::Arc;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 mod common;

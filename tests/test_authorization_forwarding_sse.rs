@@ -8,7 +8,7 @@ mod common;
 use actix_web::{App, HttpServer};
 use common::headers_test_service::HeadersTestService;
 use futures::StreamExt;
-use rmcp_actix_web::SseService;
+use rmcp_actix_web::transport::SseService;
 use serde_json::json;
 use std::sync::Arc;
 

@@ -10,7 +10,7 @@ use common::headers_test_service::HeadersTestService;
 use futures::StreamExt;
 use reqwest::Response;
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
-use rmcp_actix_web::StreamableHttpService;
+use rmcp_actix_web::transport::StreamableHttpService;
 use serde_json::{Value, json};
 use std::sync::Arc;
 use std::time::Duration;

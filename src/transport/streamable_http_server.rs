@@ -26,7 +26,7 @@
 //! ## Example
 //!
 //! ```rust,no_run
-//! use rmcp_actix_web::{StreamableHttpService, transport::AuthorizationHeader};
+//! use rmcp_actix_web::transport::StreamableHttpService;
 //! use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 //! use actix_web::{App, HttpServer};
 //! use std::sync::Arc;
@@ -137,7 +137,7 @@ impl Default for StreamableHttpServerConfig {
 /// # Example
 ///
 /// ```rust,no_run
-/// use rmcp_actix_web::{StreamableHttpService, transport::AuthorizationHeader};
+/// use rmcp_actix_web::transport::StreamableHttpService;
 /// use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 /// use actix_web::{App, HttpServer, web};
 /// use std::{sync::Arc, time::Duration};
@@ -239,7 +239,7 @@ where
     /// # Example
     ///
     /// ```rust,no_run
-    /// use rmcp_actix_web::{StreamableHttpService, transport::AuthorizationHeader};
+    /// use rmcp_actix_web::transport::StreamableHttpService;
     /// use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
     /// use actix_web::{App, HttpServer, web};
     /// use std::sync::Arc;
@@ -301,7 +301,7 @@ where
     /// # Example
     ///
     /// ```rust,no_run
-    /// use rmcp_actix_web::{StreamableHttpService, transport::AuthorizationHeader};
+    /// use rmcp_actix_web::transport::{StreamableHttpService, AuthorizationHeader};
     /// use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
     /// use actix_web::{App, HttpServer, web};
     /// use std::sync::Arc;

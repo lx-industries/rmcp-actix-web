@@ -34,7 +34,7 @@
 //! Clients must provide the same session ID in both connections.
 
 use actix_web::{App, HttpServer, middleware};
-use rmcp_actix_web::SseService;
+use rmcp_actix_web::transport::SseService;
 use std::{sync::Arc, time::Duration};
 use tracing_subscriber::{
     layer::SubscriberExt,

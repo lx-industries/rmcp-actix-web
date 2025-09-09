@@ -26,7 +26,7 @@
 //! ## Example
 //!
 //! ```rust,no_run
-//! use rmcp_actix_web::SseService;
+//! use rmcp_actix_web::transport::SseService;
 //! use actix_web::{App, web};
 //! use std::time::Duration;
 //!
@@ -324,7 +324,7 @@ impl Stream for SseServerTransport {
 /// # Example
 ///
 /// ```rust,no_run
-/// use rmcp_actix_web::SseService;
+/// use rmcp_actix_web::transport::SseService;
 /// use actix_web::{App, web};
 /// use std::time::Duration;
 ///
@@ -385,7 +385,7 @@ where
     /// # Example
     ///
     /// ```rust,no_run
-    /// use rmcp_actix_web::SseService;
+    /// use rmcp_actix_web::transport::SseService;
     /// use actix_web::{App, HttpServer, web};
     /// use std::time::Duration;
     ///
@@ -489,7 +489,7 @@ where
     /// # Example
     ///
     /// ```rust,no_run
-    /// use rmcp_actix_web::SseService;
+    /// use rmcp_actix_web::transport::SseService;
     /// use actix_web::{App, HttpServer, web};
     /// use std::time::Duration;
     ///

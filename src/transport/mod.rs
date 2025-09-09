@@ -38,7 +38,7 @@
 //!
 //! ```rust,no_run
 //! use actix_web::{App, HttpServer, web};
-//! use rmcp_actix_web::{SseService, StreamableHttpService};
+//! use rmcp_actix_web::transport::{SseService, StreamableHttpService};
 //! use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 //! use std::{sync::Arc, time::Duration};
 //!
@@ -60,7 +60,7 @@
 //!             .post_path("/messages".to_string())
 //!             .sse_keep_alive(Duration::from_secs(30))
 //!             .build();
-//!         
+//!
 //!         // StreamableHttp service with builder pattern
 //!         let http_service = StreamableHttpService::builder()
 //!             .service_factory(Arc::new(|| Ok(MyService::new())))
@@ -68,7 +68,7 @@
 //!             .stateful_mode(true)
 //!             .sse_keep_alive(Duration::from_secs(30))
 //!             .build();
-//!         
+//!
 //!         App::new()
 //!             .service(web::scope("/api/v1/sse").service(sse_service.scope()))
 //!             .service(web::scope("/api/v1/http").service(http_service.scope()))
@@ -93,12 +93,18 @@
 /// Provides unidirectional streaming from server to client using the SSE protocol.
 #[cfg(feature = "transport-sse-server")]
 pub mod sse_server;
+#[cfg(feature = "transport-sse-server")]
+pub use sse_server::{SseServerTransport, SseService, SseServiceBuilder};
 
 /// Streamable HTTP transport implementation.
 ///
 /// Provides bidirectional communication with session management.
 #[cfg(feature = "transport-streamable-http-server")]
 pub mod streamable_http_server;
+#[cfg(feature = "transport-streamable-http-server")]
+pub use streamable_http_server::{
+    StreamableHttpServerConfig, StreamableHttpService, StreamableHttpServiceBuilder,
+};
 
 /// Authorization header value for MCP proxy scenarios.
 ///

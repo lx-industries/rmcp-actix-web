@@ -44,7 +44,7 @@ use rmcp::{
     ErrorData as McpError, RoleServer, ServerHandler, handler::server::router::tool::ToolRouter,
     model::*, service::RequestContext, tool, tool_handler, tool_router,
 };
-use rmcp_actix_web::{SseService, transport::AuthorizationHeader};
+use rmcp_actix_web::transport::{AuthorizationHeader, SseService};
 use serde_json::json;
 use std::sync::Arc;
 

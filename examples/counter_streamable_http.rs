@@ -43,7 +43,7 @@
 
 use actix_web::{App, HttpServer, middleware};
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
-use rmcp_actix_web::StreamableHttpService;
+use rmcp_actix_web::transport::StreamableHttpService;
 use std::{sync::Arc, time::Duration};
 use tracing_subscriber::{
     layer::SubscriberExt,

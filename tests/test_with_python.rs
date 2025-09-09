@@ -1,4 +1,4 @@
-use rmcp_actix_web::SseService;
+use rmcp_actix_web::transport::SseService;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 mod common;
 use common::calculator::Calculator;
