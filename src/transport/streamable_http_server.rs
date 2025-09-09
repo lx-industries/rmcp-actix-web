@@ -26,7 +26,7 @@
 //! ## Example
 //!
 //! ```rust,no_run
-//! use rmcp_actix_web::StreamableHttpService;
+//! use rmcp_actix_web::{StreamableHttpService, transport::AuthorizationHeader};
 //! use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 //! use actix_web::{App, HttpServer};
 //! use std::sync::Arc;
@@ -137,7 +137,7 @@ impl Default for StreamableHttpServerConfig {
 /// # Example
 ///
 /// ```rust,no_run
-/// use rmcp_actix_web::StreamableHttpService;
+/// use rmcp_actix_web::{StreamableHttpService, transport::AuthorizationHeader};
 /// use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 /// use actix_web::{App, HttpServer, web};
 /// use std::{sync::Arc, time::Duration};
@@ -230,6 +230,8 @@ where
     /// The method consumes `self`, so you can call it directly on the service instance.
     /// If you need to use the service multiple times, wrap it in an `Arc` and clone it.
     ///
+    /// This method is equivalent to `scope_with_path("")`.
+    ///
     /// # Returns
     ///
     /// Returns an actix-web `Scope` configured with the streamable HTTP routes
@@ -237,7 +239,7 @@ where
     /// # Example
     ///
     /// ```rust,no_run
-    /// use rmcp_actix_web::StreamableHttpService;
+    /// use rmcp_actix_web::{StreamableHttpService, transport::AuthorizationHeader};
     /// use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
     /// use actix_web::{App, HttpServer, web};
     /// use std::sync::Arc;
@@ -278,6 +280,69 @@ where
             InitError = (),
         >,
     > {
+        self.scope_with_path("")
+    }
+
+    /// Creates a new scope configured with this service for framework-level composition.
+    ///
+    /// This method provides framework-level composition aligned with RMCP patterns,
+    /// similar to how `SseService::scope()` works. This allows mounting the
+    /// streamable HTTP service at custom paths using actix-web's routing.
+    ///
+    /// The method consumes `self`, so you can call it directly on the service instance.
+    /// If you need to use the service multiple times, wrap it in an `Arc` and clone it.
+    ///
+    /// This method is similar to `scope` except that it allows specifying a custom path.
+    ///
+    /// # Returns
+    ///
+    /// Returns an actix-web `Scope` configured with the streamable HTTP routes
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use rmcp_actix_web::{StreamableHttpService, transport::AuthorizationHeader};
+    /// use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
+    /// use actix_web::{App, HttpServer, web};
+    /// use std::sync::Arc;
+    ///
+    /// # use rmcp::{ServerHandler, model::ServerInfo};
+    /// # #[derive(Clone)]
+    /// # struct MyService;
+    /// # impl ServerHandler for MyService {
+    /// #     fn get_info(&self) -> ServerInfo { ServerInfo::default() }
+    /// # }
+    /// # impl MyService { fn new() -> Self { Self } }
+    /// #[actix_web::main]
+    /// async fn main() -> std::io::Result<()> {
+    ///     // Create service inside HttpServer closure for reuse across requests
+    ///     HttpServer::new(|| {
+    ///         let service = StreamableHttpService::builder()
+    ///             .service_factory(Arc::new(|| Ok(MyService::new())))
+    ///             .session_manager(Arc::new(LocalSessionManager::default()))
+    ///             .build();
+    ///
+    ///         App::new()
+    ///             .service(service.scope_with_path("/api/v1/mcp"))
+    ///     })
+    ///     .bind("127.0.0.1:8080")?
+    ///     .run();
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn scope_with_path(
+        self,
+        path: &str,
+    ) -> Scope<
+        impl actix_web::dev::ServiceFactory<
+            actix_web::dev::ServiceRequest,
+            Config = (),
+            Response = actix_web::dev::ServiceResponse,
+            Error = actix_web::Error,
+            InitError = (),
+        >,
+    > {
         let app_data = AppData {
             service_factory: self.service_factory,
             session_manager: self.session_manager,
@@ -285,7 +350,7 @@ where
             sse_keep_alive: self.sse_keep_alive,
         };
 
-        web::scope("")
+        web::scope(path)
             .app_data(Data::new(app_data))
             .wrap(middleware::NormalizePath::trim())
             .route("", web::get().to(Self::handle_get))

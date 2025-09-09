@@ -46,10 +46,10 @@
 //!         .post_path("/messages".to_string())
 //!         .sse_keep_alive(Duration::from_secs(30))
 //!         .build();
-//!     
+//!
 //!     let app = App::new()
 //!         .service(web::scope("/api").service(sse_service.scope()));
-//!     
+//!
 //!     Ok(())
 //! }
 //! ```
@@ -341,7 +341,7 @@ impl Stream for SseServerTransport {
 ///     .post_path("/messages".to_string())
 ///     .sse_keep_alive(Duration::from_secs(30))
 ///     .build();
-///     
+///
 /// let app = App::new()
 ///     .service(web::scope("/api").service(sse_service.scope()));
 /// ```
@@ -376,6 +376,8 @@ where
     /// similar to how `StreamableHttpService::scope()` works. This allows mounting the
     /// SSE service at custom paths using actix-web's routing.
     ///
+    /// This method is similar to `scope` except that it allows specifying a custom path.
+    ///
     /// # Returns
     ///
     /// Returns an actix-web `Scope` configured with the SSE routes
@@ -398,13 +400,14 @@ where
     ///     .sse_path("/events".to_string())
     ///     .post_path("/messages".to_string())
     ///     .build();
-    ///     
+    ///
     /// // Mount into existing app at a custom path
     /// let app = App::new()
-    ///     .service(web::scope("/api/v1/mcp").service(service.scope()));
+    ///     .service(service.scope_with_path("/api/v1/mcp"));
     /// ```
-    pub fn scope(
+    pub fn scope_with_path(
         self,
+        path: &str,
     ) -> Scope<
         impl actix_web::dev::ServiceFactory<
             actix_web::dev::ServiceRequest,
@@ -464,10 +467,59 @@ where
             }
         });
 
-        web::scope("")
+        web::scope(path)
             .app_data(app_data.clone())
             .wrap(middleware::NormalizePath::trim())
             .route(&sse_path, web::get().to(sse_handler))
             .route(&post_path, web::post().to(post_event_handler))
+    }
+
+    /// Creates a new scope configured with this service for framework-level composition.
+    ///
+    /// This method provides framework-level composition aligned with RMCP patterns,
+    /// similar to how `StreamableHttpService::scope()` works. This allows mounting the
+    /// SSE service at custom paths using actix-web's routing.
+    ///
+    /// This method is equivalent to `scope_with_path("")`.
+    ///
+    /// # Returns
+    ///
+    /// Returns an actix-web `Scope` configured with the SSE routes
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use rmcp_actix_web::SseService;
+    /// use actix_web::{App, HttpServer, web};
+    /// use std::time::Duration;
+    ///
+    /// # use rmcp::{ServerHandler, model::ServerInfo};
+    /// # struct MyService;
+    /// # impl ServerHandler for MyService {
+    /// #     fn get_info(&self) -> ServerInfo { ServerInfo::default() }
+    /// # }
+    /// # impl MyService { fn new() -> Self { Self } }
+    /// let service = SseService::builder()
+    ///     .service_factory(std::sync::Arc::new(|| Ok(MyService::new())))
+    ///     .sse_path("/events".to_string())
+    ///     .post_path("/messages".to_string())
+    ///     .build();
+    ///
+    /// // Mount into existing app at a custom path
+    /// let app = App::new()
+    ///     .service(web::scope("/api/v1/mcp").service(service.scope()));
+    /// ```
+    pub fn scope(
+        self,
+    ) -> Scope<
+        impl actix_web::dev::ServiceFactory<
+            actix_web::dev::ServiceRequest,
+            Config = (),
+            Response = actix_web::dev::ServiceResponse,
+            Error = actix_web::Error,
+            InitError = (),
+        >,
+    > {
+        self.scope_with_path("")
     }
 }
