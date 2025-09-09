@@ -13,49 +13,13 @@
 //!
 //! ## Features
 //!
-//! - **[SSE (Server-Sent Events) Transport][SseService]**: Real-time, unidirectional communication from server to client
+//! - **[SSE (Server-Sent Events) Transport][SseService]** *(DEPRECATED)*: Real-time, unidirectional communication from server to client
 //! - **[Streamable HTTP Transport][StreamableHttpService]**: Bidirectional communication with session management
 //! - **Full MCP Compatibility**: Implements the complete MCP specification
 //! - **Drop-in Replacement**: Same service implementations work with either Axum or actix-web transports
 //! - **Production Ready**: Built on battle-tested actix-web framework
 //!
 //! ## Quick Start
-//!
-//! ### SSE Service Example
-//!
-//! ```rust,no_run
-//! use rmcp_actix_web::transport::SseService;
-//! use actix_web::{App, HttpServer};
-//! use std::time::Duration;
-//!
-//! # #[derive(Clone)]
-//! # struct MyMcpService;
-//! # impl rmcp::ServerHandler for MyMcpService {
-//! #     fn get_info(&self) -> rmcp::model::ServerInfo { rmcp::model::ServerInfo::default() }
-//! # }
-//! # impl MyMcpService {
-//! #     fn new() -> Self { Self }
-//! # }
-//! #[actix_web::main]
-//! async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     let sse_service = SseService::builder()
-//!         .service_factory(std::sync::Arc::new(|| Ok(MyMcpService::new())))
-//!         .sse_path("/sse".to_string())
-//!         .post_path("/message".to_string())
-//!         .sse_keep_alive(Duration::from_secs(30))
-//!         .build();
-//!
-//!     HttpServer::new(move || {
-//!         App::new()
-//!             .service(sse_service.clone().scope())
-//!     })
-//!     .bind("127.0.0.1:8080")?
-//!     .run()
-//!     .await?;
-//!
-//!     Ok(())
-//! }
-//! ```
 //!
 //! ### Streamable HTTP Server Example
 //!
@@ -97,51 +61,22 @@
 //!
 //! ## Transport Selection
 //!
-//! Choose between the two transport types based on your needs:
-//!
-//! - **[SSE Transport][transport::sse_server]**: Best for server-to-client streaming, simpler protocol, works through proxies
-//! - **[Streamable HTTP][transport::streamable_http_server]**: Full bidirectional communication, session management, more complex protocol
+//! - **[Streamable HTTP][transport::streamable_http_server]**: Full bidirectional communication with session management
+//! - **[SSE Transport][transport::sse_server]** *(DEPRECATED)*: Legacy unidirectional transport, please migrate to StreamableHttp
 //!
 //! ## Examples
 //!
 //! See the `examples/` directory for complete working examples:
-//! - `counter_sse.rs` - SSE server with a simple counter service
 //! - `counter_streamable_http.rs` - Streamable HTTP server example
-//! - `composition_sse_example.rs` - SSE server with framework-level composition
 //! - `composition_streamable_http_example.rs` - StreamableHttp with custom mounting
-//! - `multi_service_example.rs` - Multiple MCP services with different transports
+//! - `authorization_proxy_example.rs` - Authorization header forwarding example
 //!
 //! ## Framework-Level Composition
 //!
 //! Both transports support framework-level composition aligned with RMCP patterns,
 //! allowing you to mount MCP services at custom paths within existing actix-web applications.
 //!
-//! ### SSE Service Composition
-//!
-//! ```rust,no_run
-//! use rmcp_actix_web::transport::SseService;
-//! use actix_web::{App, web};
-//! use std::time::Duration;
-//!
-//! # #[derive(Clone)]
-//! # struct MyService;
-//! # impl rmcp::ServerHandler for MyService {
-//! #     fn get_info(&self) -> rmcp::model::ServerInfo { rmcp::model::ServerInfo::default() }
-//! # }
-//! # impl MyService { fn new() -> Self { Self } }
-//! let sse_service = SseService::builder()
-//!     .service_factory(std::sync::Arc::new(|| Ok(MyService::new())))
-//!     .sse_path("/events".to_string())
-//!     .post_path("/messages".to_string())
-//!     .sse_keep_alive(Duration::from_secs(30))
-//!     .build();
-//!
-//! // Mount at custom path using scope()
-//! let app = App::new()
-//!     .service(web::scope("/api/v1/calculator").service(sse_service.scope()));
-//! ```
-//!
-//! ### StreamableHttp Service Composition
+//! ### Service Composition
 //!
 //! ```rust,no_run
 //! use rmcp_actix_web::transport::{StreamableHttpService, AuthorizationHeader};
@@ -174,66 +109,27 @@
 //! # }
 //! ```
 //!
-//! ### Multi-Service Composition
-//!
-//! ```rust,no_run
-//! use rmcp_actix_web::transport::{SseService, StreamableHttpService};
-//! use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
-//! use actix_web::{App, web};
-//! use std::{sync::Arc, time::Duration};
-//!
-//! # #[derive(Clone)]
-//! # struct MyService;
-//! # impl rmcp::ServerHandler for MyService {
-//! #     fn get_info(&self) -> rmcp::model::ServerInfo { rmcp::model::ServerInfo::default() }
-//! # }
-//! # impl MyService { fn new() -> Self { Self } }
-//! # use actix_web::HttpServer;
-//! # #[actix_web::main]
-//! # async fn main() -> std::io::Result<()> {
-//! HttpServer::new(|| {
-//!     // Both services use identical builder pattern
-//!     let sse_service = SseService::builder()
-//!         .service_factory(Arc::new(|| Ok(MyService::new())))
-//!         .sse_path("/events".to_string())
-//!         .post_path("/messages".to_string())
-//!         .build();
-//!
-//!     let http_service = StreamableHttpService::builder()
-//!         .service_factory(Arc::new(|| Ok(MyService::new())))
-//!         .session_manager(Arc::new(LocalSessionManager::default()))
-//!         .stateful_mode(true)
-//!         .build();
-//!
-//!     // Both services mount identically via scope()
-//!     App::new()
-//!         .service(web::scope("/api/sse").service(sse_service.scope()))
-//!         .service(web::scope("/api/http").service(http_service.scope()))
-//! }).bind("127.0.0.1:8080")?.run().await
-//! # }
-//! ```
-//!
+//
 //! See the `examples/` directory for complete working examples of composition patterns.
 //!
 //! ## Performance Considerations
 //!
-//! - SSE transport has lower overhead for unidirectional communication
 //! - Streamable HTTP maintains persistent sessions which may use more memory
-//! - Both transports use efficient async I/O through actix-web's actor system
+//! - Uses efficient async I/O through actix-web's actor system
 //! - Framework-level composition adds minimal overhead
 //!
 //! ## Feature Flags
 //!
 //! This crate supports selective compilation of transport types:
 //!
-//! - `transport-sse-server` (default): Enables SSE transport
 //! - `transport-streamable-http-server` (default): Enables StreamableHttp transport
+//! - `transport-sse-server` *(DEPRECATED)*: Enables legacy SSE transport
 //!
-//! To use only specific transports, disable default features:
+//! To use only StreamableHttp transport, disable default features:
 //!
 //! ```toml
 //! [dependencies]
-//! rmcp-actix-web = { version = "0.1", default-features = false, features = ["transport-sse-server"] }
+//! rmcp-actix-web = { version = "0.6", default-features = false, features = ["transport-streamable-http-server"] }
 //! ```
 
 pub mod transport;

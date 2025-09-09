@@ -1,3 +1,6 @@
+#![cfg(feature = "transport-sse-server")]
+#![allow(deprecated)]
+
 use rmcp_actix_web::transport::SseService;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 mod common;
@@ -20,11 +23,12 @@ async fn init() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[allow(deprecated)]
 #[actix_web::test]
 async fn test_with_python_client() -> anyhow::Result<()> {
     init().await?;
 
-    const BIND_ADDRESS: &str = "127.0.0.1:8000";
+    const BIND_ADDRESS: &str = "127.0.0.1:8002";
 
     // Create SSE service using builder pattern
     let sse_service = SseService::builder()

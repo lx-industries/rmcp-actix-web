@@ -7,7 +7,6 @@ This crate provides actix-web-based transport implementations for the Model Cont
 ## Overview
 
 `rmcp-actix-web` provides:
-- **SSE (Server-Sent Events) transport**: Real-time, unidirectional communication
 - **Streamable HTTP transport**: Bidirectional communication with session management
 - **Framework-level composition**: Mount MCP services at custom paths using actix-web Scope
 - **Full MCP compatibility**: Implements the complete MCP protocol specification
@@ -45,7 +44,7 @@ cargo build --workspace
 cargo test
 
 # Run examples
-cargo run --example counter_sse
+cargo run --example counter_streamable_http
 ```
 
 ### Code Standards
@@ -75,13 +74,10 @@ actix-web = "4"
 Control which transports are compiled:
 
 ```toml
-# Default: both transports enabled
+# Default: StreamableHttp transport enabled
 rmcp-actix-web = "0.2"
 
-# Only SSE transport
-rmcp-actix-web = { version = "0.2", default-features = false, features = ["transport-sse-server"] }
-
-# Only StreamableHttp transport
+# Only StreamableHttp transport (explicit)
 rmcp-actix-web = { version = "0.2", default-features = false, features = ["transport-streamable-http-server"] }
 ```
 
@@ -97,50 +93,18 @@ rmcp-actix-web = { version = "0.2", default-features = false, features = ["trans
 
 ## Quick Start
 
-### Simple SSE Server
-
-```rust
-use rmcp_actix_web::SseService;
-use actix_web::{App, HttpServer};
-use std::sync::Arc;
-
-#[actix_web::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let sse_service = SseService::builder()
-        .service_factory(Arc::new(|| Ok(MyMcpService::new())))
-        .build();
-
-    HttpServer::new(move || {
-        App::new()
-            .service(sse_service.clone().scope())
-    })
-    .bind("127.0.0.1:8080")?
-    .run()
-    .await?;
-
-    Ok(())
-}
-```
-
 ### Framework-Level Composition
 
 Mount MCP services at custom paths within existing actix-web applications:
 
 ```rust
-use rmcp_actix_web::{SseService, StreamableHttpService};
+use rmcp_actix_web::StreamableHttpService;
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 use actix_web::{App, HttpServer, web};
 use std::sync::Arc;
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // SSE service with builder pattern
-    let sse_service = SseService::builder()
-        .service_factory(Arc::new(|| Ok(MyMcpService::new())))
-        .sse_path("/events".to_string())
-        .post_path("/messages".to_string())
-        .build();
-
     // StreamableHttp service with builder pattern (shared across workers)
     let http_service = StreamableHttpService::builder()
         .service_factory(Arc::new(|| Ok(MyMcpService::new())))
@@ -152,9 +116,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         App::new()
             // Your existing routes
             .route("/health", web::get().to(|| async { "OK" }))
-            // Mount MCP services at custom paths
-            .service(web::scope("/api/v1/sse-calc").service(sse_service.clone().scope()))
-            .service(web::scope("/api/v1/http-calc").service(http_service.clone().scope()))
+            // Mount MCP service at custom path
+            .service(web::scope("/api/v1/mcp").service(http_service.clone().scope()))
     })
     .bind("127.0.0.1:8080")?
     .run()
@@ -169,13 +132,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 See the `examples/` directory for complete working examples:
 
 ### Basic Examples
-- `counter_sse.rs` - SSE server with a simple counter service
 - `counter_streamable_http.rs` - Streamable HTTP server example
 
 ### Composition Examples
-- `composition_sse_example.rs` - SSE server with framework-level composition
 - `composition_streamable_http_example.rs` - StreamableHttp with custom mounting
-- `multi_service_example.rs` - Multiple MCP services with different transports
 
 ### Proxy Examples
 - `authorization_proxy_example.rs` - MCP service acting as a proxy using Authorization headers
@@ -183,14 +143,14 @@ See the `examples/` directory for complete working examples:
 ### Running Examples
 
 ```bash
-# Basic SSE server
-cargo run --example counter_sse
+# Basic StreamableHttp server
+cargo run --example counter_streamable_http
 
-# Framework composition with SSE
-cargo run --example composition_sse_example
+# Framework composition with StreamableHttp
+cargo run --example composition_streamable_http_example
 
-# Multi-service example with both transports
-cargo run --example multi_service_example
+# Authorization proxy example
+cargo run --example authorization_proxy_example
 ```
 
 Each example includes detailed documentation and curl commands for testing.
@@ -198,10 +158,9 @@ Each example includes detailed documentation and curl commands for testing.
 ## Key Features
 
 ### Framework-Level Composition
-- **SSE Service**: `SseService::builder().build()` with `.scope()` method for mounting at custom paths
 - **StreamableHttp**: `StreamableHttpService::builder().build()` with `.scope()` for composition
-- **Multi-Service**: Compose multiple MCP services with different transports in one app
-- **Unified Builder API**: Consistent builder pattern across all transport services
+- **Custom Paths**: Mount services at any path using actix-web's Scope system
+- **Builder API**: Consistent builder pattern for service configuration
 
 ### Protocol Support
 - **Full MCP Compatibility**: Implements complete MCP protocol specification

@@ -11,7 +11,7 @@ keywords = ["mcp", "actix", "actix-web", "protocol", "llm"]
 categories = ["network-programming", "web-programming"]
 
 [features]
-default = ["transport-sse-server", "transport-streamable-http-server"]
+default = ["transport-streamable-http-server"]
 transport-sse-server = ["rmcp/transport-sse-server"]
 transport-streamable-http-server = ["rmcp/transport-streamable-http-server"]
 

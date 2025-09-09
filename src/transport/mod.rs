@@ -9,6 +9,10 @@
 //!
 //! ### SSE (Server-Sent Events)
 //!
+//! **DEPRECATED**: The SSE transport is deprecated in favor of StreamableHttp transport.
+//! Please migrate to [`StreamableHttpService`][crate::StreamableHttpService] for better
+//! bidirectional communication and session management.
+//!
 //! The [`sse_server`] module provides a unidirectional transport using the
 //! [Server-Sent Events][sse-spec] protocol. This is ideal for:
 //! - Real-time notifications and updates
@@ -38,7 +42,7 @@
 //!
 //! ```rust,no_run
 //! use actix_web::{App, HttpServer, web};
-//! use rmcp_actix_web::transport::{SseService, StreamableHttpService};
+//! use rmcp_actix_web::transport::StreamableHttpService;
 //! use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 //! use std::{sync::Arc, time::Duration};
 //!
@@ -51,16 +55,7 @@
 //! # impl MyService { fn new() -> Self { Self } }
 //! #[actix_web::main]
 //! async fn main() -> std::io::Result<()> {
-//!     // Both services mount identically via scope() in HttpServer closure
 //!     HttpServer::new(|| {
-//!         // SSE service with builder pattern
-//!         let sse_service = SseService::builder()
-//!             .service_factory(Arc::new(|| Ok(MyService::new())))
-//!             .sse_path("/events".to_string())
-//!             .post_path("/messages".to_string())
-//!             .sse_keep_alive(Duration::from_secs(30))
-//!             .build();
-//!
 //!         // StreamableHttp service with builder pattern
 //!         let http_service = StreamableHttpService::builder()
 //!             .service_factory(Arc::new(|| Ok(MyService::new())))
@@ -70,8 +65,8 @@
 //!             .build();
 //!
 //!         App::new()
-//!             .service(web::scope("/api/v1/sse").service(sse_service.scope()))
-//!             .service(web::scope("/api/v1/http").service(http_service.scope()))
+//!             // Mount StreamableHttp service at /api/v1/mcp/
+//!             .service(web::scope("/api/v1/mcp").service(http_service.scope()))
 //!     })
 //!     .bind("127.0.0.1:8080")?
 //!     .run()
@@ -90,10 +85,16 @@
 
 /// Server-Sent Events transport implementation.
 ///
+/// **DEPRECATED**: Use StreamableHttp transport instead.
 /// Provides unidirectional streaming from server to client using the SSE protocol.
 #[cfg(feature = "transport-sse-server")]
+#[deprecated(
+    since = "0.7.0",
+    note = "SSE transport module is deprecated in favor of StreamableHttp transport"
+)]
 pub mod sse_server;
 #[cfg(feature = "transport-sse-server")]
+#[allow(deprecated)]
 pub use sse_server::{SseServerTransport, SseService, SseServiceBuilder};
 
 /// Streamable HTTP transport implementation.

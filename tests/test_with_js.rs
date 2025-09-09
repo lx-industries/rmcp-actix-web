@@ -1,13 +1,20 @@
+#![cfg(all(
+    feature = "transport-sse-server",
+    feature = "transport-streamable-http-server"
+))]
+
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
+#[allow(deprecated)]
 use rmcp_actix_web::transport::{SseService, StreamableHttpService};
 use std::sync::Arc;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 mod common;
 use common::calculator::Calculator;
 
-const SSE_BIND_ADDRESS: &str = "127.0.0.1:8000";
-const STREAMABLE_HTTP_BIND_ADDRESS: &str = "127.0.0.1:8001";
+const SSE_BIND_ADDRESS: &str = "127.0.0.1:8003";
+const STREAMABLE_HTTP_BIND_ADDRESS: &str = "127.0.0.1:8004";
 
+#[allow(deprecated)]
 #[actix_web::test]
 async fn test_with_js_client() -> anyhow::Result<()> {
     let _ = tracing_subscriber::registry()

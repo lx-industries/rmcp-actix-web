@@ -1,5 +1,10 @@
 //! Example demonstrating Authorization header forwarding with SSE transport.
 //!
+//! This example requires the `transport-sse-server` feature to be enabled.
+//!
+//! **DEPRECATED**: The SSE transport is deprecated in favor of StreamableHttp transport.
+//! Please see `authorization_proxy_example.rs` for the recommended approach using StreamableHttp.
+//!
 //! This example shows how Authorization headers sent with POST requests to the
 //! message endpoint are forwarded to MCP services, enabling proxy scenarios
 //! where different tools can use different authentication tokens.
@@ -39,13 +44,19 @@
 //!   -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"github_api"},"id":4}'
 //! ```
 
+#[cfg(feature = "transport-sse-server")]
 use actix_web::{App, HttpServer};
+#[cfg(feature = "transport-sse-server")]
 use rmcp::{
     ErrorData as McpError, RoleServer, ServerHandler, handler::server::router::tool::ToolRouter,
     model::*, service::RequestContext, tool, tool_handler, tool_router,
 };
+#[cfg(feature = "transport-sse-server")]
+#[allow(deprecated)]
 use rmcp_actix_web::transport::{AuthorizationHeader, SseService};
+#[cfg(feature = "transport-sse-server")]
 use serde_json::json;
+#[cfg(feature = "transport-sse-server")]
 use std::sync::Arc;
 
 /// SSE proxy service that demonstrates per-request Authorization.
@@ -53,11 +64,13 @@ use std::sync::Arc;
 /// Unlike the StreamableHttp example which stores Authorization at initialize,
 /// this example shows the more realistic proxy pattern where each tool call
 /// can have its own Authorization token for different backend APIs.
+#[cfg(feature = "transport-sse-server")]
 #[derive(Clone)]
 struct SseProxyService {
     tool_router: ToolRouter<SseProxyService>,
 }
 
+#[cfg(feature = "transport-sse-server")]
 #[tool_router]
 impl SseProxyService {
     fn new() -> Self {
@@ -170,6 +183,7 @@ impl SseProxyService {
     }
 }
 
+#[cfg(feature = "transport-sse-server")]
 #[tool_handler]
 impl ServerHandler for SseProxyService {
     fn get_info(&self) -> ServerInfo {
@@ -210,6 +224,8 @@ impl ServerHandler for SseProxyService {
     }
 }
 
+#[cfg(feature = "transport-sse-server")]
+#[allow(deprecated)]
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     // Initialize logging
@@ -274,4 +290,13 @@ async fn main() -> std::io::Result<()> {
         .bind("127.0.0.1:8080")?
         .run()
         .await
+}
+
+#[cfg(not(feature = "transport-sse-server"))]
+fn main() {
+    eprintln!("This example requires the 'transport-sse-server' feature to be enabled.");
+    eprintln!(
+        "Run with: cargo run --example authorization_proxy_sse_example --features transport-sse-server"
+    );
+    std::process::exit(1);
 }

@@ -3,6 +3,9 @@
 //! These tests verify that Authorization headers are properly forwarded to MCP services
 //! through the SSE transport, similar to how StreamableHttp handles them.
 
+#![cfg(feature = "transport-sse-server")]
+#![allow(deprecated)]
+
 mod common;
 
 use actix_web::{App, HttpServer};

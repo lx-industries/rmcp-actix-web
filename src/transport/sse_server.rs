@@ -1,7 +1,13 @@
 //! Server-Sent Events (SSE) transport implementation for MCP.
 //!
+//! **DEPRECATED**: This transport is deprecated in favor of the StreamableHttp transport,
+//! which provides better bidirectional communication and session management capabilities.
+//! SSE transport will be removed in a future version. Please migrate to StreamableHttp.
+//!
 //! This module provides a unidirectional transport using the SSE protocol,
 //! allowing servers to push real-time updates to clients over a standard HTTP connection.
+
+#![allow(deprecated)]
 //!
 //! ## Architecture
 //!
@@ -239,6 +245,10 @@ async fn sse_handler(app_data: Data<AppData>, req: HttpRequest) -> Result<HttpRe
 /// Implements both `Sink` and `Stream` traits to provide bidirectional communication
 /// for a single client session. This is created internally for each client connection
 /// and passed to the MCP service.
+#[deprecated(
+    since = "0.7.0",
+    note = "SSE transport is deprecated in favor of StreamableHttp transport which provides better bidirectional communication and session management"
+)]
 pub struct SseServerTransport {
     stream: ReceiverStream<RxJsonRpcMessage<RoleServer>>,
     sink: PollSender<TxJsonRpcMessage<RoleServer>>,
@@ -312,6 +322,8 @@ impl Stream for SseServerTransport {
 /// Clients connect to the SSE endpoint to receive events and send requests via a separate POST endpoint.
 /// Uses a builder pattern for configuration.
 ///
+/// **DEPRECATED**: Use `StreamableHttpService` instead for better bidirectional communication.
+///
 /// # Architecture
 ///
 /// The service manages two endpoints:
@@ -345,6 +357,10 @@ impl Stream for SseServerTransport {
 /// let app = App::new()
 ///     .service(web::scope("/api").service(sse_service.scope()));
 /// ```
+#[deprecated(
+    since = "0.7.0",
+    note = "SSE transport is deprecated in favor of StreamableHttp transport which provides better bidirectional communication and session management"
+)]
 #[derive(Clone, bon::Builder)]
 pub struct SseService<S> {
     /// The service factory function that creates new MCP service instances

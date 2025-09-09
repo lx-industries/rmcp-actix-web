@@ -1,5 +1,10 @@
 //! Server-Sent Events (SSE) transport example.
 //!
+//! This example requires the `transport-sse-server` feature to be enabled.
+//!
+//! **DEPRECATED**: The SSE transport is deprecated in favor of StreamableHttp transport.
+//! Please see `counter_streamable_http.rs` for the recommended approach.
+//!
 //! This example demonstrates how to use the SSE transport to create an MCP server
 //! that streams updates to clients. The example implements a simple counter service
 //! that increments every second using the unified builder pattern.
@@ -33,24 +38,34 @@
 //!
 //! Clients must provide the same session ID in both connections.
 
+#[cfg(feature = "transport-sse-server")]
 use actix_web::{App, HttpServer, middleware};
+#[cfg(feature = "transport-sse-server")]
+#[allow(deprecated)]
 use rmcp_actix_web::transport::SseService;
+#[cfg(feature = "transport-sse-server")]
 use std::{sync::Arc, time::Duration};
+#[cfg(feature = "transport-sse-server")]
 use tracing_subscriber::{
     layer::SubscriberExt,
     util::SubscriberInitExt,
     {self},
 };
 
+#[cfg(feature = "transport-sse-server")]
 mod common;
+#[cfg(feature = "transport-sse-server")]
 use common::counter::Counter;
 
+#[cfg(feature = "transport-sse-server")]
 const BIND_ADDRESS: &str = "127.0.0.1:8000";
 
 /// Example SSE server using rmcp-actix-web with unified builder pattern.
 ///
 /// Important: This uses `#[actix_web::main]` instead of `#[tokio::main]`
 /// because actix-web requires its own runtime configuration.
+#[cfg(feature = "transport-sse-server")]
+#[allow(deprecated)]
 #[actix_web::main]
 async fn main() -> anyhow::Result<()> {
     // Initialize tracing for debug output
@@ -90,4 +105,11 @@ async fn main() -> anyhow::Result<()> {
 
     println!("✅ Server stopped");
     Ok(())
+}
+
+#[cfg(not(feature = "transport-sse-server"))]
+fn main() {
+    eprintln!("This example requires the 'transport-sse-server' feature to be enabled.");
+    eprintln!("Run with: cargo run --example counter_sse --features transport-sse-server");
+    std::process::exit(1);
 }

@@ -1,5 +1,10 @@
 //! SSE Service Composition Example
 //!
+//! This example requires the `transport-sse-server` feature to be enabled.
+//!
+//! **DEPRECATED**: The SSE transport is deprecated in favor of StreamableHttp transport.
+//! Please see `composition_streamable_http_example.rs` for the recommended approach.
+//!
 //! This example demonstrates how to use framework-level composition to mount
 //! SSE MCP services at custom paths within an existing actix-web application
 //! using the unified builder pattern.
@@ -30,15 +35,23 @@
 //!      -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
 //! ```
 
+#[cfg(feature = "transport-sse-server")]
 use actix_web::{App, HttpResponse, HttpServer, Result, middleware, web};
+#[cfg(feature = "transport-sse-server")]
+#[allow(deprecated)]
 use rmcp_actix_web::transport::SseService;
+#[cfg(feature = "transport-sse-server")]
 use std::{sync::Arc, time::Duration};
+#[cfg(feature = "transport-sse-server")]
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+#[cfg(feature = "transport-sse-server")]
 mod common;
+#[cfg(feature = "transport-sse-server")]
 use common::calculator::Calculator;
 
 /// A simple health check endpoint to demonstrate integration with existing routes
+#[cfg(feature = "transport-sse-server")]
 async fn health_check() -> Result<HttpResponse> {
     Ok(HttpResponse::Ok().json(serde_json::json!({
         "status": "healthy",
@@ -48,6 +61,7 @@ async fn health_check() -> Result<HttpResponse> {
 }
 
 /// Root endpoint that shows available services
+#[cfg(feature = "transport-sse-server")]
 async fn root() -> Result<HttpResponse> {
     Ok(HttpResponse::Ok().json(serde_json::json!({
         "message": "MCP Calculator Service",
@@ -60,6 +74,8 @@ async fn root() -> Result<HttpResponse> {
     })))
 }
 
+#[cfg(feature = "transport-sse-server")]
+#[allow(deprecated)]
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize tracing for better debugging
@@ -121,4 +137,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
+}
+
+#[cfg(not(feature = "transport-sse-server"))]
+fn main() {
+    eprintln!("This example requires the 'transport-sse-server' feature to be enabled.");
+    eprintln!(
+        "Run with: cargo run --example composition_sse_example --features transport-sse-server"
+    );
+    std::process::exit(1);
 }
