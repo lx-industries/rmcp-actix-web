@@ -1,4 +1,4 @@
-#![cfg(feature = "transport-sse-server")]
+#![cfg(feature = "transport-sse")]
 #![allow(deprecated)]
 
 use rmcp_actix_web::transport::SseService;

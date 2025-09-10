@@ -35,23 +35,23 @@
 //!      -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
 //! ```
 
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 use actix_web::{App, HttpResponse, HttpServer, Result, middleware, web};
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 #[allow(deprecated)]
 use rmcp_actix_web::transport::SseService;
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 use std::{sync::Arc, time::Duration};
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 mod common;
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 use common::calculator::Calculator;
 
 /// A simple health check endpoint to demonstrate integration with existing routes
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 async fn health_check() -> Result<HttpResponse> {
     Ok(HttpResponse::Ok().json(serde_json::json!({
         "status": "healthy",
@@ -61,7 +61,7 @@ async fn health_check() -> Result<HttpResponse> {
 }
 
 /// Root endpoint that shows available services
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 async fn root() -> Result<HttpResponse> {
     Ok(HttpResponse::Ok().json(serde_json::json!({
         "message": "MCP Calculator Service",
@@ -74,7 +74,7 @@ async fn root() -> Result<HttpResponse> {
     })))
 }
 
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 #[allow(deprecated)]
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -139,7 +139,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-#[cfg(not(feature = "transport-sse-server"))]
+#[cfg(not(feature = "transport-sse"))]
 fn main() {
     eprintln!("This example requires the 'transport-sse-server' feature to be enabled.");
     eprintln!(

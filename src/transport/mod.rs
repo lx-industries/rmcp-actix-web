@@ -87,22 +87,22 @@
 ///
 /// **DEPRECATED**: Use StreamableHttp transport instead.
 /// Provides unidirectional streaming from server to client using the SSE protocol.
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 #[deprecated(
     since = "0.7.0",
     note = "SSE transport module is deprecated in favor of StreamableHttp transport"
 )]
 pub mod sse_server;
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 #[allow(deprecated)]
 pub use sse_server::{SseServerTransport, SseService, SseServiceBuilder};
 
 /// Streamable HTTP transport implementation.
 ///
 /// Provides bidirectional communication with session management.
-#[cfg(feature = "transport-streamable-http-server")]
+#[cfg(feature = "transport-streamable-http")]
 pub mod streamable_http_server;
-#[cfg(feature = "transport-streamable-http-server")]
+#[cfg(feature = "transport-streamable-http")]
 pub use streamable_http_server::{
     StreamableHttpServerConfig, StreamableHttpService, StreamableHttpServiceBuilder,
 };

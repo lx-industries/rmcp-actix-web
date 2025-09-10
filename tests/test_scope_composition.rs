@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use actix_web::{App, test, web};
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 use rmcp_actix_web::transport::SseService;
 use rmcp_actix_web::transport::StreamableHttpService;
 
@@ -18,7 +18,7 @@ mod common;
 use common::calculator::Calculator;
 
 #[actix_web::test]
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 async fn test_sse_service_scope_composition() {
     // Test that SseService can be mounted at a custom path using builder pattern
     let sse_service = SseService::builder()
@@ -87,7 +87,7 @@ async fn test_streamable_http_service_scope_composition() {
 }
 
 #[actix_web::test]
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 async fn test_multiple_services_composition() {
     // Test mounting multiple MCP services at different paths using builder pattern
     let sse_service = SseService::builder()
@@ -142,7 +142,7 @@ async fn test_multiple_services_composition() {
 }
 
 #[actix_web::test]
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 async fn test_nested_scope_composition() {
     // Test deeply nested scope composition
     let sse_service = SseService::builder()

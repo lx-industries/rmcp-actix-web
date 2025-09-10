@@ -11,9 +11,9 @@ keywords = ["mcp", "actix", "actix-web", "protocol", "llm"]
 categories = ["network-programming", "web-programming"]
 
 [features]
-default = ["transport-streamable-http-server"]
-transport-sse-server = ["rmcp/transport-sse-server"]
-transport-streamable-http-server = ["rmcp/transport-streamable-http-server"]
+default = ["transport-streamable-http"]
+transport-sse = ["rmcp/transport-sse-server"]
+transport-streamable-http = ["rmcp/transport-streamable-http-server"]
 
 # Enable this if your MCP service will forward tokens to upstream APIs (non-compliant).
 # This violates MCP specifications but may be necessary for proxy architectures.

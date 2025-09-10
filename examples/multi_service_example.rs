@@ -47,7 +47,7 @@
 
 use actix_web::{App, HttpResponse, HttpServer, Result, middleware, web};
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 #[allow(deprecated)]
 use rmcp_actix_web::transport::SseService;
 use rmcp_actix_web::transport::StreamableHttpService;
@@ -74,7 +74,7 @@ async fn service_discovery() -> Result<HttpResponse> {
         }
     });
 
-    #[cfg(feature = "transport-sse-server")]
+    #[cfg(feature = "transport-sse")]
     {
         services["calculator_sse"] = serde_json::json!({
             "transport": "sse",
@@ -91,10 +91,10 @@ async fn service_discovery() -> Result<HttpResponse> {
 
     #[allow(unused_mut)]
     let mut transport_types = vec!["streamable-http"];
-    #[cfg(feature = "transport-sse-server")]
+    #[cfg(feature = "transport-sse")]
     transport_types.push("sse");
 
-    let total_services = if cfg!(feature = "transport-sse-server") {
+    let total_services = if cfg!(feature = "transport-sse") {
         2
     } else {
         1
@@ -105,7 +105,7 @@ async fn service_discovery() -> Result<HttpResponse> {
         "streamable_http": "POST initialize request to create session, then use Mcp-Session-Id header"
     });
 
-    #[cfg(feature = "transport-sse-server")]
+    #[cfg(feature = "transport-sse")]
     {
         usage["sse"] = serde_json::json!(
             "Connect to SSE endpoint for real-time streaming, POST messages to post endpoint"
@@ -131,7 +131,7 @@ async fn health_check() -> Result<HttpResponse> {
         "calculator_http": "running"
     });
 
-    #[cfg(feature = "transport-sse-server")]
+    #[cfg(feature = "transport-sse")]
     {
         services["calculator_sse"] = serde_json::json!("running");
     }
@@ -153,14 +153,14 @@ async fn root() -> Result<HttpResponse> {
         "calculator_http": "/api/v1/http/calculator/"
     });
 
-    #[cfg(feature = "transport-sse-server")]
+    #[cfg(feature = "transport-sse")]
     {
         endpoints["calculator_sse"] = serde_json::json!("/api/v1/sse/calculator/");
     }
 
     #[allow(unused_mut)]
     let mut transports = vec!["streamable-http"];
-    #[cfg(feature = "transport-sse-server")]
+    #[cfg(feature = "transport-sse")]
     transports.push("sse");
 
     Ok(HttpResponse::Ok().json(serde_json::json!({
@@ -227,7 +227,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let mut v1_scope = web::scope("/v1");
 
                     // SSE-based calculator (if feature enabled)
-                    #[cfg(feature = "transport-sse-server")]
+                    #[cfg(feature = "transport-sse")]
                     #[allow(deprecated)]
                     {
                         let sse_service = SseService::builder()
@@ -268,7 +268,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("🏥 Health Check: http://{}/health", bind_addr);
     tracing::info!("");
 
-    #[cfg(feature = "transport-sse-server")]
+    #[cfg(feature = "transport-sse")]
     {
         tracing::info!("🔥 SSE Calculator:");
         tracing::info!(

@@ -1,7 +1,4 @@
-#![cfg(all(
-    feature = "transport-sse-server",
-    feature = "transport-streamable-http-server"
-))]
+#![cfg(all(feature = "transport-sse", feature = "transport-streamable-http"))]
 
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 #[allow(deprecated)]

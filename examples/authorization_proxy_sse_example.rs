@@ -44,19 +44,19 @@
 //!   -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"github_api"},"id":4}'
 //! ```
 
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 use actix_web::{App, HttpServer};
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 use rmcp::{
     ErrorData as McpError, RoleServer, ServerHandler, handler::server::router::tool::ToolRouter,
     model::*, service::RequestContext, tool, tool_handler, tool_router,
 };
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 #[allow(deprecated)]
 use rmcp_actix_web::transport::{AuthorizationHeader, SseService};
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 use serde_json::json;
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 use std::sync::Arc;
 
 /// SSE proxy service that demonstrates per-request Authorization.
@@ -64,13 +64,13 @@ use std::sync::Arc;
 /// Unlike the StreamableHttp example which stores Authorization at initialize,
 /// this example shows the more realistic proxy pattern where each tool call
 /// can have its own Authorization token for different backend APIs.
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 #[derive(Clone)]
 struct SseProxyService {
     tool_router: ToolRouter<SseProxyService>,
 }
 
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 #[tool_router]
 impl SseProxyService {
     fn new() -> Self {
@@ -183,7 +183,7 @@ impl SseProxyService {
     }
 }
 
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 #[tool_handler]
 impl ServerHandler for SseProxyService {
     fn get_info(&self) -> ServerInfo {
@@ -224,7 +224,7 @@ impl ServerHandler for SseProxyService {
     }
 }
 
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 #[allow(deprecated)]
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -292,7 +292,7 @@ async fn main() -> std::io::Result<()> {
         .await
 }
 
-#[cfg(not(feature = "transport-sse-server"))]
+#[cfg(not(feature = "transport-sse"))]
 fn main() {
     eprintln!("This example requires the 'transport-sse-server' feature to be enabled.");
     eprintln!(

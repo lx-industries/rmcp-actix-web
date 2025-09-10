@@ -38,33 +38,33 @@
 //!
 //! Clients must provide the same session ID in both connections.
 
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 use actix_web::{App, HttpServer, middleware};
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 #[allow(deprecated)]
 use rmcp_actix_web::transport::SseService;
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 use std::{sync::Arc, time::Duration};
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 use tracing_subscriber::{
     layer::SubscriberExt,
     util::SubscriberInitExt,
     {self},
 };
 
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 mod common;
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 use common::counter::Counter;
 
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 const BIND_ADDRESS: &str = "127.0.0.1:8000";
 
 /// Example SSE server using rmcp-actix-web with unified builder pattern.
 ///
 /// Important: This uses `#[actix_web::main]` instead of `#[tokio::main]`
 /// because actix-web requires its own runtime configuration.
-#[cfg(feature = "transport-sse-server")]
+#[cfg(feature = "transport-sse")]
 #[allow(deprecated)]
 #[actix_web::main]
 async fn main() -> anyhow::Result<()> {
@@ -107,7 +107,7 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg(not(feature = "transport-sse-server"))]
+#[cfg(not(feature = "transport-sse"))]
 fn main() {
     eprintln!("This example requires the 'transport-sse-server' feature to be enabled.");
     eprintln!("Run with: cargo run --example counter_sse --features transport-sse-server");

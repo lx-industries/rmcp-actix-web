@@ -3,7 +3,7 @@
 //! These tests verify that Authorization headers are properly forwarded to MCP services
 //! through the SSE transport, similar to how StreamableHttp handles them.
 
-#![cfg(feature = "transport-sse-server")]
+#![cfg(feature = "transport-sse")]
 #![allow(deprecated)]
 
 mod common;
