@@ -1,6 +1,6 @@
 //! Server-Sent Events (SSE) transport example.
 //!
-//! This example requires the `transport-sse-server` feature to be enabled.
+//! This example requires the `transport-sse` feature to be enabled.
 //!
 //! **DEPRECATED**: The SSE transport is deprecated in favor of StreamableHttp transport.
 //! Please see `counter_streamable_http.rs` for the recommended approach.
@@ -39,77 +39,76 @@
 //! Clients must provide the same session ID in both connections.
 
 #[cfg(feature = "transport-sse")]
-use actix_web::{App, HttpServer, middleware};
-#[cfg(feature = "transport-sse")]
-#[allow(deprecated)]
-use rmcp_actix_web::transport::SseService;
-#[cfg(feature = "transport-sse")]
-use std::{sync::Arc, time::Duration};
-#[cfg(feature = "transport-sse")]
-use tracing_subscriber::{
-    layer::SubscriberExt,
-    util::SubscriberInitExt,
-    {self},
-};
-
-#[cfg(feature = "transport-sse")]
+#[path = "common/mod.rs"]
 mod common;
-#[cfg(feature = "transport-sse")]
-use common::counter::Counter;
 
 #[cfg(feature = "transport-sse")]
-const BIND_ADDRESS: &str = "127.0.0.1:8000";
+mod sse_example {
+    #![allow(deprecated)]
 
-/// Example SSE server using rmcp-actix-web with unified builder pattern.
-///
-/// Important: This uses `#[actix_web::main]` instead of `#[tokio::main]`
-/// because actix-web requires its own runtime configuration.
+    use actix_web::{App, HttpServer, middleware};
+    use rmcp_actix_web::transport::SseService;
+    use std::{sync::Arc, time::Duration};
+    use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+    use super::common::counter::Counter;
+
+    const BIND_ADDRESS: &str = "127.0.0.1:8000";
+
+    /// Example SSE server using rmcp-actix-web with unified builder pattern.
+    ///
+    /// Important: This uses `#[actix_web::main]` instead of `#[tokio::main]`
+    /// because actix-web requires its own runtime configuration.
+    pub async fn run() -> anyhow::Result<()> {
+        // Initialize tracing for debug output
+        tracing_subscriber::registry()
+            .with(
+                tracing_subscriber::EnvFilter::try_from_default_env()
+                    .unwrap_or_else(|_| "debug".to_string().into()),
+            )
+            .with(tracing_subscriber::fmt::layer())
+            .init();
+
+        // Create SSE service using builder pattern
+        let sse_service = SseService::builder()
+            .service_factory(Arc::new(|| Ok(Counter::new()))
+                as Arc<dyn Fn() -> Result<Counter, std::io::Error> + Send + Sync>) // Create new Counter for each session
+            .sse_path("/sse".to_string()) // SSE endpoint path
+            .post_path("/message".to_string()) // Message endpoint path
+            .sse_keep_alive(Duration::from_secs(30)) // Keep-alive pings every 30 seconds
+            .build();
+
+        println!("\n🚀 SSE Server (actix-web) running at http://{BIND_ADDRESS}");
+        println!("📡 SSE endpoint: http://{BIND_ADDRESS}/sse");
+        println!("📮 Message endpoint: http://{BIND_ADDRESS}/message");
+        println!("\nPress Ctrl+C to stop the server\n");
+
+        // Start the HTTP server with the SSE service mounted
+        HttpServer::new(move || {
+            App::new()
+                .wrap(middleware::Logger::default())
+                .wrap(middleware::NormalizePath::trim())
+                // Mount SSE service at root - endpoints will be /sse and /message
+                .service(sse_service.clone().scope())
+        })
+        .bind(BIND_ADDRESS)?
+        .run()
+        .await?;
+
+        println!("✅ Server stopped");
+        Ok(())
+    }
+}
+
 #[cfg(feature = "transport-sse")]
-#[allow(deprecated)]
 #[actix_web::main]
 async fn main() -> anyhow::Result<()> {
-    // Initialize tracing for debug output
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "debug".to_string().into()),
-        )
-        .with(tracing_subscriber::fmt::layer())
-        .init();
-
-    // Create SSE service using builder pattern
-    let sse_service = SseService::builder()
-        .service_factory(Arc::new(|| Ok(Counter::new()))
-            as Arc<dyn Fn() -> Result<Counter, std::io::Error> + Send + Sync>) // Create new Counter for each session
-        .sse_path("/sse".to_string()) // SSE endpoint path
-        .post_path("/message".to_string()) // Message endpoint path
-        .sse_keep_alive(Duration::from_secs(30)) // Keep-alive pings every 30 seconds
-        .build();
-
-    println!("\n🚀 SSE Server (actix-web) running at http://{BIND_ADDRESS}");
-    println!("📡 SSE endpoint: http://{BIND_ADDRESS}/sse");
-    println!("📮 Message endpoint: http://{BIND_ADDRESS}/message");
-    println!("\nPress Ctrl+C to stop the server\n");
-
-    // Start the HTTP server with the SSE service mounted
-    HttpServer::new(move || {
-        App::new()
-            .wrap(middleware::Logger::default())
-            .wrap(middleware::NormalizePath::trim())
-            // Mount SSE service at root - endpoints will be /sse and /message
-            .service(sse_service.clone().scope())
-    })
-    .bind(BIND_ADDRESS)?
-    .run()
-    .await?;
-
-    println!("✅ Server stopped");
-    Ok(())
+    sse_example::run().await
 }
 
 #[cfg(not(feature = "transport-sse"))]
 fn main() {
-    eprintln!("This example requires the 'transport-sse-server' feature to be enabled.");
-    eprintln!("Run with: cargo run --example counter_sse --features transport-sse-server");
+    eprintln!("This example requires the 'transport-sse' feature to be enabled.");
+    eprintln!("Run with: cargo run --example counter_sse --features transport-sse");
     std::process::exit(1);
 }
