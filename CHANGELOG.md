@@ -1,3 +1,18 @@
+## [0.7.0](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.6.1...v0.7.0) (2025-09-10)
+
+
+### Features
+
+* add scope_with_path() method for enhanced service mounting flexibility ([ca726be](https://gitlab.com/lx-industries/rmcp-actix-web/commit/ca726be8c0f2261a2b09920816b86f8cc97d66d1)), closes [#29](https://gitlab.com/lx-industries/rmcp-actix-web/issues/29)
+* deprecate SSE transport in favor of StreamableHttp ([3d4fa20](https://gitlab.com/lx-industries/rmcp-actix-web/commit/3d4fa20ad941c50f4af56f024c1e5a77e292b4cc))
+
+
+### Miscellaneous Chores
+
+* **deps:** update node.js to d6ba961 ([cc35803](https://gitlab.com/lx-industries/rmcp-actix-web/commit/cc35803692bb30440e83e47ddbdb56ff7e4788fe))
+* **deps:** update rust crate chrono to v0.4.42 ([2dbb13d](https://gitlab.com/lx-industries/rmcp-actix-web/commit/2dbb13de6d5d03e5b553187d686df3b459a59165))
+* **deps:** update rust:1.89.0 docker digest to 1ca9500 ([9933f6f](https://gitlab.com/lx-industries/rmcp-actix-web/commit/9933f6f4c88292e3e9e3ccf691ca5a577fe5b3a5))
+
 ## [0.6.1](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.6.0...v0.6.1) (2025-09-05)
 
 
