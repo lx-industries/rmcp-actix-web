@@ -1,3 +1,16 @@
+## [0.8.0](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.7.0...v0.8.0) (2025-09-11)
+
+
+### Features
+
+* remove the -server suffix from the transport-http-streamable and transport-sse Cargo features ([f65c51c](https://gitlab.com/lx-industries/rmcp-actix-web/commit/f65c51c026d865d4fb66eb82de60fc897bcdbf43))
+
+
+### Miscellaneous Chores
+
+* **deps:** update node.js to afff6d8 ([e3d4ca9](https://gitlab.com/lx-industries/rmcp-actix-web/commit/e3d4ca94cc4da1b0604c644a4d9f295c80ae41be))
+* **deps:** update rust:1.89.0 docker digest to 9e1b362 ([b1c683a](https://gitlab.com/lx-industries/rmcp-actix-web/commit/b1c683a3bb34550c2451745dc26cb529d3803b31))
+
 ## [0.7.0](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.6.1...v0.7.0) (2025-09-10)
 
 
