@@ -174,6 +174,7 @@ impl ServerHandler for Counter {
                 Some("This is an example prompt that takes one required argument, message"),
                 Some(vec![PromptArgument {
                     name: "message".to_string(),
+                    title: Some("Message".to_string()),
                     description: Some("A message to put in the prompt".to_string()),
                     required: Some(true),
                 }]),
