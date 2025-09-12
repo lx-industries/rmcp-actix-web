@@ -1,3 +1,10 @@
+## [0.8.1](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.8.0...v0.8.1) (2025-09-12)
+
+
+### Miscellaneous Chores
+
+* **deps:** update rmcp from 0.6.3 to 0.6.4 ([143354f](https://gitlab.com/lx-industries/rmcp-actix-web/commit/143354f6c6303147cedd54482746db0ddf4f361c))
+
 ## [0.8.0](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.7.0...v0.8.0) (2025-09-11)
 
 
