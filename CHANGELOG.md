@@ -1,3 +1,12 @@
+## [0.8.2](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.8.1...v0.8.2) (2025-09-15)
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate serde to v1.0.220 ([bb5c9c7](https://gitlab.com/lx-industries/rmcp-actix-web/commit/bb5c9c7e49befb609e5f487f78950fe2d88bbf34))
+* **deps:** update rust crate serde to v1.0.223 ([b618203](https://gitlab.com/lx-industries/rmcp-actix-web/commit/b618203b484e53f0a596bf5fb6a36a55fa91a1bb))
+* **deps:** update rust crate serde_json to v1.0.145 ([95d6762](https://gitlab.com/lx-industries/rmcp-actix-web/commit/95d67623078cca333b96101b4a939448f7cb4bd8))
+
 ## [0.8.1](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.8.0...v0.8.1) (2025-09-12)
 
 
