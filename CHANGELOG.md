@@ -1,3 +1,17 @@
+## [0.8.6](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.8.5...v0.8.6) (2025-10-04)
+
+
+### Bug Fixes
+
+* keep initialization response stream alive with keep-alive pings ([7fde5a3](https://gitlab.com/lx-industries/rmcp-actix-web/commit/7fde5a346955b8458b2358b3a02c14bb1917d806)), closes [#35](https://gitlab.com/lx-industries/rmcp-actix-web/issues/35)
+
+
+### Miscellaneous Chores
+
+* **deps:** update node.js to 2bb201f ([2c9848a](https://gitlab.com/lx-industries/rmcp-actix-web/commit/2c9848a1b59cc268a1504509bae6499293be24bb))
+* **deps:** update rust:1.90.0 docker digest to 04e1ac6 ([5b74d82](https://gitlab.com/lx-industries/rmcp-actix-web/commit/5b74d8292f22556c0c34d6d55dd4686d4119e20f))
+* **deps:** update rust:1.90.0 docker digest to 512d81e ([509a9ec](https://gitlab.com/lx-industries/rmcp-actix-web/commit/509a9ecba93715bfef61362486deb4911e60f359))
+
 ## [0.8.5](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.8.4...v0.8.5) (2025-09-29)
 
 
