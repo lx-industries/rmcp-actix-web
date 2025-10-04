@@ -941,35 +941,7 @@ where
                     });
 
                     // Add keep-alive if configured
-                    let keep_alive = service.sse_keep_alive;
-                    let sse_stream = async_stream::stream! {
-                        let mut stream = Box::pin(sse_stream);
-                        let mut keep_alive_timer = keep_alive.map(|duration| tokio::time::interval(duration));
-
-                        loop {
-                            tokio::select! {
-                                Some(result) = stream.next() => {
-                                    match result {
-                                        Ok(data) => yield Ok(data),
-                                        Err(e) => yield Err(e),
-                                    }
-                                }
-                                _ = async {
-                                    match keep_alive_timer.as_mut() {
-                                        Some(timer) => {
-                                            timer.tick().await;
-                                        }
-                                        None => {
-                                            std::future::pending::<()>().await;
-                                        }
-                                    }
-                                } => {
-                                    yield Ok(Bytes::from(":ping\n\n"));
-                                }
-                                else => break,
-                            }
-                        }
-                    };
+                    let sse_stream = wrap_with_sse_keepalive(sse_stream, service.sse_keep_alive);
 
                     Ok(HttpResponse::Ok()
                         .content_type(EVENT_STREAM_MIME_TYPE)
