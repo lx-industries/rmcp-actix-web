@@ -186,19 +186,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bind_addr = "127.0.0.1:8080";
     tracing::info!("🚀 Starting Multi-Service MCP server on {}", bind_addr);
 
-    // === Main HTTP Server with All Services ===
-    let server = HttpServer::new(|| {
-        // StreamableHttp Calculator Service
-        let http_service = StreamableHttpService::builder()
-            .service_factory(Arc::new(|| {
-                tracing::debug!("Creating new Calculator for StreamableHttp transport");
-                Ok(Calculator::new())
-            }))
-            .session_manager(Arc::new(LocalSessionManager::default())) // Session management
-            .stateful_mode(true) // Enable sessions
-            .sse_keep_alive(Duration::from_secs(30)) // Keep-alive pings
-            .build();
+    // === Create StreamableHttp Service OUTSIDE HttpServer::new() to share across workers ===
+    let http_service = StreamableHttpService::builder()
+        .service_factory(Arc::new(|| {
+            tracing::debug!("Creating new Calculator for StreamableHttp transport");
+            Ok(Calculator::new())
+        }))
+        .session_manager(Arc::new(LocalSessionManager::default())) // Session management
+        .stateful_mode(true) // Enable sessions
+        .sse_keep_alive(Duration::from_secs(30)) // Keep-alive pings
+        .build();
 
+    // === Main HTTP Server with All Services ===
+    let server = HttpServer::new(move || {
         let mut app = App::new()
             // === Middleware Stack ===
             .wrap(middleware::Logger::default())
@@ -246,11 +246,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         );
                     }
 
-                    // StreamableHttp-based calculator
-                    v1_scope = v1_scope.service(
-                        web::scope("/http")
-                            .service(web::scope("/calculator").service(http_service.scope())),
-                    );
+                    // StreamableHttp-based calculator (cloned for each worker)
+                    v1_scope =
+                        v1_scope.service(web::scope("/http").service(
+                            web::scope("/calculator").service(http_service.clone().scope()),
+                        ));
 
                     v1_scope
                 }),
