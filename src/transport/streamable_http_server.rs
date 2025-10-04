@@ -680,40 +680,19 @@ where
                                 InternalError::new(e, StatusCode::INTERNAL_SERVER_ERROR)
                             })?;
 
-                        // Convert to SSE format
-                        let keep_alive = service.sse_keep_alive;
-                        let sse_stream = async_stream::stream! {
-                            let mut stream = Box::pin(stream);
-                            let mut keep_alive_timer = keep_alive.map(|duration| tokio::time::interval(duration));
-
-                            loop {
-                                tokio::select! {
-                                    Some(msg) = stream.next() => {
-                                        let data = serde_json::to_string(&msg.message)
-                                            .unwrap_or_else(|_| "{}".to_string());
-                                        let mut output = String::new();
-                                        if let Some(id) = msg.event_id {
-                                            output.push_str(&format!("id: {id}\n"));
-                                        }
-                                        output.push_str(&format!("data: {data}\n\n"));
-                                        yield Ok::<_, actix_web::Error>(Bytes::from(output));
-                                    }
-                                    _ = async {
-                                        match keep_alive_timer.as_mut() {
-                                            Some(timer) => {
-                                                timer.tick().await;
-                                            }
-                                            None => {
-                                                std::future::pending::<()>().await;
-                                            }
-                                        }
-                                    } => {
-                                        yield Ok(Bytes::from(":ping\n\n"));
-                                    }
-                                    else => break,
-                                }
+                        // Convert to SSE format and add keep-alive
+                        let formatted_stream = stream.map(|msg| {
+                            let data = serde_json::to_string(&msg.message)
+                                .unwrap_or_else(|_| "{}".to_string());
+                            let mut output = String::new();
+                            if let Some(id) = msg.event_id {
+                                output.push_str(&format!("id: {id}\n"));
                             }
-                        };
+                            output.push_str(&format!("data: {data}\n\n"));
+                            Ok::<_, actix_web::Error>(Bytes::from(output))
+                        });
+                        let sse_stream =
+                            wrap_with_sse_keepalive(formatted_stream, service.sse_keep_alive);
 
                         Ok(HttpResponse::Ok()
                             .content_type(EVENT_STREAM_MIME_TYPE)
