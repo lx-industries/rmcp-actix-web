@@ -782,12 +782,35 @@ where
                     .await
                     .map_err(|e| InternalError::new(e, StatusCode::INTERNAL_SERVER_ERROR))?;
 
-                // Return SSE stream with single response
+                // Return SSE stream with initialization response and keep-alive
+                let keep_alive = service.sse_keep_alive;
                 let sse_stream = async_stream::stream! {
+                    // First, send the initialization response
                     yield Ok::<_, actix_web::Error>(Bytes::from(format!(
                         "data: {}\n\n",
                         serde_json::to_string(&response).unwrap_or_else(|_| "{}".to_string())
                     )));
+
+                    // Then keep the stream alive with keep-alive pings
+                    let mut keep_alive_timer = keep_alive.map(|duration| tokio::time::interval(duration));
+
+                    loop {
+                        tokio::select! {
+                            _ = async {
+                                match keep_alive_timer.as_mut() {
+                                    Some(timer) => {
+                                        timer.tick().await;
+                                    }
+                                    None => {
+                                        std::future::pending::<()>().await;
+                                    }
+                                }
+                            } => {
+                                yield Ok(Bytes::from(":ping\n\n"));
+                            }
+                            else => break,
+                        }
+                    }
                 };
 
                 Ok(HttpResponse::Ok()
