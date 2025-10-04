@@ -77,21 +77,22 @@ async fn main() -> anyhow::Result<()> {
     println!("🗑️  DELETE / - Close session");
     println!("\nPress Ctrl+C to stop the server\n");
 
-    // Start the HTTP server with the streamable HTTP service mounted
-    HttpServer::new(|| {
-        // Create streamable HTTP service using builder pattern
-        let http_service = StreamableHttpService::builder()
-            .service_factory(Arc::new(|| Ok(Counter::new()))) // Create new Counter for each session
-            .session_manager(Arc::new(LocalSessionManager::default())) // Local session management
-            .stateful_mode(true) // Enable stateful session management
-            .sse_keep_alive(Duration::from_secs(30)) // Keep-alive pings every 30 seconds
-            .build();
+    // Create streamable HTTP service OUTSIDE HttpServer::new() to share across workers
+    let http_service = StreamableHttpService::builder()
+        .service_factory(Arc::new(|| Ok(Counter::new()))) // Create new Counter for each session
+        .session_manager(Arc::new(LocalSessionManager::default())) // Local session management
+        .stateful_mode(true) // Enable stateful session management
+        .sse_keep_alive(Duration::from_secs(30)) // Keep-alive pings every 30 seconds
+        .build();
 
+    // Start the HTTP server with the streamable HTTP service mounted
+    HttpServer::new(move || {
         App::new()
             .wrap(middleware::Logger::default())
             .wrap(middleware::NormalizePath::trim())
             // Mount streamable HTTP service at root - endpoints will be /, GET/POST/DELETE
-            .service(http_service.scope())
+            // Clone service for each worker (shares the same LocalSessionManager)
+            .service(http_service.clone().scope())
     })
     .bind(BIND_ADDRESS)?
     .run()
