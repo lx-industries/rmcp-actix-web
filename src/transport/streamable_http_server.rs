@@ -216,6 +216,104 @@ impl<S, M> AppData<S, M> {
         (self.service_factory)()
     }
 }
+
+// SSE Stream Helper Functions
+//
+// These functions provide reusable SSE keep-alive functionality to avoid code duplication.
+
+/// Wraps any SSE-formatted stream with keep-alive ping support.
+///
+/// Takes a stream that yields SSE-formatted `Bytes` and adds periodic `:ping\n\n`
+/// messages to keep the connection alive when configured.
+///
+/// # Arguments
+///
+/// * `stream` - A stream of SSE-formatted bytes (already formatted as `data: ...\n\n`)
+/// * `keep_alive` - Optional keep-alive interval. If `Some`, sends `:ping\n\n` at this interval.
+///   If `None`, stream stays open indefinitely without pings.
+///
+/// # Returns
+///
+/// A new stream that multiplexes the input stream with keep-alive pings.
+fn wrap_with_sse_keepalive<S>(
+    stream: S,
+    keep_alive: Option<Duration>,
+) -> impl Stream<Item = Result<Bytes, actix_web::Error>>
+where
+    S: Stream<Item = Result<Bytes, actix_web::Error>> + Send + 'static,
+{
+    async_stream::stream! {
+        let mut stream = Box::pin(stream);
+        let mut keep_alive_timer = keep_alive.map(|duration| tokio::time::interval(duration));
+
+        loop {
+            tokio::select! {
+                Some(result) = stream.next() => {
+                    yield result;
+                }
+                _ = async {
+                    match keep_alive_timer.as_mut() {
+                        Some(timer) => {
+                            timer.tick().await;
+                        }
+                        None => {
+                            std::future::pending::<()>().await;
+                        }
+                    }
+                } => {
+                    yield Ok(Bytes::from(":ping\n\n"));
+                }
+                else => break,
+            }
+        }
+    }
+}
+
+/// Creates an SSE stream that yields an optional initial message followed by keep-alive pings.
+///
+/// Used for scenarios where we need to send a single response then keep the connection alive,
+/// such as initialization responses.
+///
+/// # Arguments
+///
+/// * `initial_message` - Optional first message to send (already SSE-formatted)
+/// * `keep_alive` - Optional keep-alive interval
+///
+/// # Returns
+///
+/// A stream that sends the initial message (if any) then only keep-alive pings.
+fn create_keepalive_stream(
+    initial_message: Option<Bytes>,
+    keep_alive: Option<Duration>,
+) -> impl Stream<Item = Result<Bytes, actix_web::Error>> {
+    async_stream::stream! {
+        // Send initial message if provided
+        if let Some(msg) = initial_message {
+            yield Ok::<_, actix_web::Error>(msg);
+        }
+
+        // Then keep stream alive with pings
+        let mut keep_alive_timer = keep_alive.map(|duration| tokio::time::interval(duration));
+
+        loop {
+            tokio::select! {
+                _ = async {
+                    match keep_alive_timer.as_mut() {
+                        Some(timer) => {
+                            timer.tick().await;
+                        }
+                        None => {
+                            std::future::pending::<()>().await;
+                        }
+                    }
+                } => {
+                    yield Ok(Bytes::from(":ping\n\n"));
+                }
+                else => break,
+            }
+        }
+    }
+}
 impl<S, M> StreamableHttpService<S, M>
 where
     S: Clone + rmcp::ServerHandler + Send + 'static,
