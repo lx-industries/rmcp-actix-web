@@ -40,16 +40,18 @@
 //! # }
 //! #[actix_web::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     HttpServer::new(|| {
-//!         let http_service = StreamableHttpService::builder()
-//!             .service_factory(Arc::new(|| Ok(MyMcpService::new())))
-//!             .session_manager(Arc::new(LocalSessionManager::default()))
-//!             .stateful_mode(true)
-//!             .sse_keep_alive(Duration::from_secs(30))
-//!             .build();
+//!     // Create service OUTSIDE HttpServer::new() to share across workers
+//!     let http_service = StreamableHttpService::builder()
+//!         .service_factory(Arc::new(|| Ok(MyMcpService::new())))
+//!         .session_manager(Arc::new(LocalSessionManager::default()))
+//!         .stateful_mode(true)
+//!         .sse_keep_alive(Duration::from_secs(30))
+//!         .build();
 //!
+//!     HttpServer::new(move || {
 //!         App::new()
-//!             .service(http_service.scope())
+//!             // Clone service for each worker (shares the same LocalSessionManager)
+//!             .service(http_service.clone().scope())
 //!     })
 //!     .bind("127.0.0.1:8080")?
 //!     .run()
@@ -94,17 +96,18 @@
 //! # use actix_web::HttpServer;
 //! # #[actix_web::main]
 //! # async fn main() -> std::io::Result<()> {
-//! HttpServer::new(|| {
-//!     let http_service = StreamableHttpService::builder()
-//!         .service_factory(Arc::new(|| Ok(MyService::new())))
-//!         .session_manager(Arc::new(LocalSessionManager::default()))
-//!         .stateful_mode(true)
-//!         .sse_keep_alive(Duration::from_secs(30))
-//!         .build();
+//! // Create service OUTSIDE HttpServer::new() to share across workers
+//! let http_service = StreamableHttpService::builder()
+//!     .service_factory(Arc::new(|| Ok(MyService::new())))
+//!     .session_manager(Arc::new(LocalSessionManager::default()))
+//!     .stateful_mode(true)
+//!     .sse_keep_alive(Duration::from_secs(30))
+//!     .build();
 //!
-//!     // Mount at custom path using scope()
+//! HttpServer::new(move || {
+//!     // Mount at custom path using scope() (cloned for each worker)
 //!     App::new()
-//!         .service(web::scope("/api/v1/calculator").service(http_service.scope()))
+//!         .service(web::scope("/api/v1/calculator").service(http_service.clone().scope()))
 //! }).bind("127.0.0.1:8080")?.run().await
 //! # }
 //! ```

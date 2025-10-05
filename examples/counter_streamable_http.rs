@@ -40,6 +40,11 @@
 //! - Session persistence
 //! - Support for resuming connections
 //! - Efficient routing of messages
+//!
+//! **Important**: The `StreamableHttpService` must be created **outside** the
+//! `HttpServer::new()` closure to ensure the `LocalSessionManager` is shared
+//! across all actix-web worker threads. Creating it inside the closure will
+//! cause "Session not found" errors when requests are routed between workers.
 
 use actix_web::{App, HttpServer, middleware};
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;

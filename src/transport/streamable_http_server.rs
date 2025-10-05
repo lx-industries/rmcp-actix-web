@@ -40,15 +40,17 @@
 //! # impl MyService { fn new() -> Self { Self } }
 //! #[actix_web::main]
 //! async fn main() -> std::io::Result<()> {
-//!     HttpServer::new(|| {
-//!         let service = StreamableHttpService::builder()
-//!             .service_factory(Arc::new(|| Ok(MyService::new())))
-//!             .session_manager(Arc::new(LocalSessionManager::default()))
-//!             .stateful_mode(true)
-//!             .build();
+//!     // Create service OUTSIDE HttpServer::new() to share across workers
+//!     let service = StreamableHttpService::builder()
+//!         .service_factory(Arc::new(|| Ok(MyService::new())))
+//!         .session_manager(Arc::new(LocalSessionManager::default()))
+//!         .stateful_mode(true)
+//!         .build();
 //!
+//!     HttpServer::new(move || {
 //!         App::new()
-//!             .service(service.scope())
+//!             // Clone service for each worker (shares the same LocalSessionManager)
+//!             .service(service.clone().scope())
 //!     })
 //!     .bind("127.0.0.1:8080")?
 //!     .run()
@@ -151,16 +153,18 @@ impl Default for StreamableHttpServerConfig {
 /// # impl MyService { fn new() -> Self { Self } }
 /// #[actix_web::main]
 /// async fn main() -> std::io::Result<()> {
-///     HttpServer::new(|| {
-///         let service = StreamableHttpService::builder()
-///             .service_factory(Arc::new(|| Ok(MyService::new())))
-///             .session_manager(Arc::new(LocalSessionManager::default()))
-///             .stateful_mode(true)
-///             .sse_keep_alive(Duration::from_secs(30))
-///             .build();
+///     // Create service OUTSIDE HttpServer::new() to share across workers
+///     let service = StreamableHttpService::builder()
+///         .service_factory(Arc::new(|| Ok(MyService::new())))
+///         .session_manager(Arc::new(LocalSessionManager::default()))
+///         .stateful_mode(true)
+///         .sse_keep_alive(Duration::from_secs(30))
+///         .build();
 ///
+///     HttpServer::new(move || {
 ///         App::new()
-///             .service(web::scope("/mcp").service(service.scope()))
+///             // Clone service for each worker (shares the same LocalSessionManager)
+///             .service(web::scope("/mcp").service(service.clone().scope()))
 ///     })
 ///     .bind("127.0.0.1:8080")?
 ///     .run()
@@ -351,15 +355,16 @@ where
     /// # impl MyService { fn new() -> Self { Self } }
     /// #[actix_web::main]
     /// async fn main() -> std::io::Result<()> {
-    ///     // Create service inside HttpServer closure for reuse across requests
-    ///     HttpServer::new(|| {
-    ///         let service = StreamableHttpService::builder()
-    ///             .service_factory(Arc::new(|| Ok(MyService::new())))
-    ///             .session_manager(Arc::new(LocalSessionManager::default()))
-    ///             .build();
+    ///     // Create service OUTSIDE HttpServer::new() to share across workers
+    ///     let service = StreamableHttpService::builder()
+    ///         .service_factory(Arc::new(|| Ok(MyService::new())))
+    ///         .session_manager(Arc::new(LocalSessionManager::default()))
+    ///         .build();
     ///
+    ///     HttpServer::new(move || {
     ///         App::new()
-    ///             .service(web::scope("/api/v1/mcp").service(service.scope()))
+    ///             // Clone service for each worker (shares the same LocalSessionManager)
+    ///             .service(web::scope("/api/v1/mcp").service(service.clone().scope()))
     ///     })
     ///     .bind("127.0.0.1:8080")?
     ///     .run();
@@ -413,15 +418,16 @@ where
     /// # impl MyService { fn new() -> Self { Self } }
     /// #[actix_web::main]
     /// async fn main() -> std::io::Result<()> {
-    ///     // Create service inside HttpServer closure for reuse across requests
-    ///     HttpServer::new(|| {
-    ///         let service = StreamableHttpService::builder()
-    ///             .service_factory(Arc::new(|| Ok(MyService::new())))
-    ///             .session_manager(Arc::new(LocalSessionManager::default()))
-    ///             .build();
+    ///     // Create service OUTSIDE HttpServer::new() to share across workers
+    ///     let service = StreamableHttpService::builder()
+    ///         .service_factory(Arc::new(|| Ok(MyService::new())))
+    ///         .session_manager(Arc::new(LocalSessionManager::default()))
+    ///         .build();
     ///
+    ///     HttpServer::new(move || {
     ///         App::new()
-    ///             .service(service.scope_with_path("/api/v1/mcp"))
+    ///             // Clone service for each worker (shares the same LocalSessionManager)
+    ///             .service(service.clone().scope_with_path("/api/v1/mcp"))
     ///     })
     ///     .bind("127.0.0.1:8080")?
     ///     .run();

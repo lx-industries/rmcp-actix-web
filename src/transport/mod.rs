@@ -55,18 +55,18 @@
 //! # impl MyService { fn new() -> Self { Self } }
 //! #[actix_web::main]
 //! async fn main() -> std::io::Result<()> {
-//!     HttpServer::new(|| {
-//!         // StreamableHttp service with builder pattern
-//!         let http_service = StreamableHttpService::builder()
-//!             .service_factory(Arc::new(|| Ok(MyService::new())))
-//!             .session_manager(Arc::new(LocalSessionManager::default()))
-//!             .stateful_mode(true)
-//!             .sse_keep_alive(Duration::from_secs(30))
-//!             .build();
+//!     // Create service OUTSIDE HttpServer::new() to share across workers
+//!     let http_service = StreamableHttpService::builder()
+//!         .service_factory(Arc::new(|| Ok(MyService::new())))
+//!         .session_manager(Arc::new(LocalSessionManager::default()))
+//!         .stateful_mode(true)
+//!         .sse_keep_alive(Duration::from_secs(30))
+//!         .build();
 //!
+//!     HttpServer::new(move || {
 //!         App::new()
-//!             // Mount StreamableHttp service at /api/v1/mcp/
-//!             .service(web::scope("/api/v1/mcp").service(http_service.scope()))
+//!             // Mount StreamableHttp service at /api/v1/mcp/ (cloned for each worker)
+//!             .service(web::scope("/api/v1/mcp").service(http_service.clone().scope()))
 //!     })
 //!     .bind("127.0.0.1:8080")?
 //!     .run()
