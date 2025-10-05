@@ -5,9 +5,10 @@
 //!
 //! ## Architecture
 //!
-//! The transport uses two endpoints:
-//! - **Stream endpoint** (`/stream`): For bidirectional streaming communication
-//! - **Message endpoint** (`/message`): For request/response pattern
+//! The transport uses three HTTP methods on a single endpoint:
+//! - **GET**: Resume or open SSE stream to receive server-to-client messages
+//! - **POST**: Send JSON-RPC requests (returns SSE stream with responses)
+//! - **DELETE**: Close session and cleanup resources
 //!
 //! ## Features
 //!
@@ -227,18 +228,19 @@ impl<S, M> AppData<S, M> {
 
 /// Wraps any SSE-formatted stream with keep-alive ping support.
 ///
-/// Takes a stream that yields SSE-formatted `Bytes` and adds periodic `:ping\n\n`
-/// messages to keep the connection alive when configured.
+/// Adds periodic `:ping\n\n` messages during silent periods to prevent connection timeouts.
+/// The wrapper automatically stops when the underlying stream ends, allowing POST responses
+/// to close properly per MCP spec.
 ///
 /// # Arguments
 ///
 /// * `stream` - A stream of SSE-formatted bytes (already formatted as `data: ...\n\n`)
-/// * `keep_alive` - Optional keep-alive interval. If `Some`, sends `:ping\n\n` at this interval.
-///   If `None`, stream stays open indefinitely without pings.
+/// * `keep_alive` - Optional keep-alive interval. If `Some`, sends `:ping\n\n` at this interval
+///   during silent periods. If `None`, no pings are sent.
 ///
 /// # Returns
 ///
-/// A new stream that multiplexes the input stream with keep-alive pings.
+/// A stream that multiplexes the input stream with keep-alive pings, ending when the input ends.
 fn wrap_with_sse_keepalive<S>(
     stream: S,
     keep_alive: Option<Duration>,
@@ -250,10 +252,18 @@ where
         let mut stream = Box::pin(stream);
         let mut keep_alive_timer = keep_alive.map(|duration| tokio::time::interval(duration));
 
+        // Consume the immediate first tick if keep-alive is enabled
+        if let Some(ref mut timer) = keep_alive_timer {
+            timer.tick().await;
+        }
+
         loop {
             tokio::select! {
-                Some(result) = stream.next() => {
-                    yield result;
+                result = stream.next() => {
+                    match result {
+                        Some(msg) => yield msg,
+                        None => break, // Stream ended, stop sending pings
+                    }
                 }
                 _ = async {
                     match keep_alive_timer.as_mut() {
@@ -267,57 +277,11 @@ where
                 } => {
                     yield Ok(Bytes::from(":ping\n\n"));
                 }
-                else => break,
             }
         }
     }
 }
 
-/// Creates an SSE stream that yields an optional initial message followed by keep-alive pings.
-///
-/// Used for scenarios where we need to send a single response then keep the connection alive,
-/// such as initialization responses.
-///
-/// # Arguments
-///
-/// * `initial_message` - Optional first message to send (already SSE-formatted)
-/// * `keep_alive` - Optional keep-alive interval
-///
-/// # Returns
-///
-/// A stream that sends the initial message (if any) then only keep-alive pings.
-fn create_keepalive_stream(
-    initial_message: Option<Bytes>,
-    keep_alive: Option<Duration>,
-) -> impl Stream<Item = Result<Bytes, actix_web::Error>> {
-    async_stream::stream! {
-        // Send initial message if provided
-        if let Some(msg) = initial_message {
-            yield Ok::<_, actix_web::Error>(msg);
-        }
-
-        // Then keep stream alive with pings
-        let mut keep_alive_timer = keep_alive.map(|duration| tokio::time::interval(duration));
-
-        loop {
-            tokio::select! {
-                _ = async {
-                    match keep_alive_timer.as_mut() {
-                        Some(timer) => {
-                            timer.tick().await;
-                        }
-                        None => {
-                            std::future::pending::<()>().await;
-                        }
-                    }
-                } => {
-                    yield Ok(Bytes::from(":ping\n\n"));
-                }
-                else => break,
-            }
-        }
-    }
-}
 impl<S, M> StreamableHttpService<S, M>
 where
     S: Clone + rmcp::ServerHandler + Send + 'static,
@@ -686,7 +650,9 @@ where
                                 InternalError::new(e, StatusCode::INTERNAL_SERVER_ERROR)
                             })?;
 
-                        // Convert to SSE format and add keep-alive
+                        // Convert to SSE format with keep-alive
+                        // Keep-alive prevents timeouts during long tool execution with no progress updates
+                        // Stream closes automatically after final response (keep-alive stops when stream ends)
                         let formatted_stream = stream.map(|msg| {
                             let data = serde_json::to_string(&msg.message)
                                 .unwrap_or_else(|_| "{}".to_string());
@@ -842,13 +808,23 @@ where
                     .await
                     .map_err(|e| InternalError::new(e, StatusCode::INTERNAL_SERVER_ERROR))?;
 
-                // Return SSE stream with initialization response and keep-alive
-                let initial_msg = Bytes::from(format!(
-                    "data: {}\n\n",
-                    serde_json::to_string(&response).unwrap_or_else(|_| "{}".to_string())
-                ));
-                let sse_stream = create_keepalive_stream(Some(initial_msg), service.sse_keep_alive);
+                tracing::debug!(?response, "Initialization complete, creating SSE stream");
 
+                // Return SSE stream with initialization response (no keep-alive)
+                // Per MCP spec: "After the JSON-RPC response has been sent, the server SHOULD close the SSE stream"
+                // Initialization completes with a single response, so no keep-alive needed
+                let sse_stream = async_stream::stream! {
+                    yield Ok::<_, actix_web::Error>(Bytes::from(format!(
+                        "data: {}\n\n",
+                        serde_json::to_string(&response).unwrap_or_else(|_| "{}".to_string())
+                    )));
+                };
+                tracing::debug!("Created initialization response stream (closes after response)");
+
+                tracing::info!(
+                    ?session_id,
+                    "Returning SSE streaming response for initialization"
+                );
                 Ok(HttpResponse::Ok()
                     .content_type(EVENT_STREAM_MIME_TYPE)
                     .append_header((CACHE_CONTROL, "no-cache"))
@@ -938,16 +914,17 @@ where
                         let _ = service_handle.waiting().await;
                     });
 
-                    // Convert receiver stream to SSE format
-                    let sse_stream = ReceiverStream::new(receiver).map(|message| {
+                    // Convert receiver stream to SSE format with keep-alive
+                    // Keep-alive prevents timeouts during long tool execution with no progress updates
+                    // Stream closes automatically after final response (keep-alive stops when stream ends)
+                    let formatted_stream = ReceiverStream::new(receiver).map(|message| {
                         tracing::info!(?message);
                         let data =
                             serde_json::to_string(&message).unwrap_or_else(|_| "{}".to_string());
                         Ok::<_, actix_web::Error>(Bytes::from(format!("data: {data}\n\n")))
                     });
-
-                    // Add keep-alive if configured
-                    let sse_stream = wrap_with_sse_keepalive(sse_stream, service.sse_keep_alive);
+                    let sse_stream =
+                        wrap_with_sse_keepalive(formatted_stream, service.sse_keep_alive);
 
                     Ok(HttpResponse::Ok()
                         .content_type(EVENT_STREAM_MIME_TYPE)
