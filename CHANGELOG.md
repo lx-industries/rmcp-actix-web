@@ -1,3 +1,19 @@
+## [0.8.8](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.8.7...v0.8.8) (2025-10-06)
+
+
+### Bug Fixes
+
+* align POST handler keep-alive to match with MCP specification ([14c8805](https://gitlab.com/lx-industries/rmcp-actix-web/commit/14c8805bac148c5b80c92a7057819a51bb22aabe))
+* move StreamableHttpService outside HttpServer closure in composition example ([bcac579](https://gitlab.com/lx-industries/rmcp-actix-web/commit/bcac579dd015373596c8ed154c7ab60088f00d08))
+* move StreamableHttpService outside HttpServer closure in counter_streamable_http ([d772748](https://gitlab.com/lx-industries/rmcp-actix-web/commit/d7727488f326403b88c37eecb069886c425b047e))
+* move StreamableHttpService outside HttpServer closure in multi_service example ([68fc582](https://gitlab.com/lx-industries/rmcp-actix-web/commit/68fc582cd60157993c4f95a4ea818ed1c550cc05))
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate bon to v3.8.0 ([16e7841](https://gitlab.com/lx-industries/rmcp-actix-web/commit/16e784176a5b2705110d08dd512cf94c1de32b0d))
+* **deps:** update rust:1.90.0 docker digest to 976303c ([8f49647](https://gitlab.com/lx-industries/rmcp-actix-web/commit/8f496477f789baae91de11cee4d851df52afdfc5))
+
 ## [0.8.7](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.8.6...v0.8.7) (2025-10-04)
 
 
