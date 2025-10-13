@@ -1,3 +1,11 @@
+## [0.8.9](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.8.8...v0.8.9) (2025-10-13)
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate bon to v3.8.1 ([5815c7e](https://gitlab.com/lx-industries/rmcp-actix-web/commit/5815c7e55d62d6a9f8f35da388f8188211a94010))
+* **deps:** update rust crate rmcp to v0.8.1 ([9f884d5](https://gitlab.com/lx-industries/rmcp-actix-web/commit/9f884d53e6df48a3d616facdaaf81b3a0420ba2d))
+
 ## [0.8.8](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.8.7...v0.8.8) (2025-10-06)
 
 
