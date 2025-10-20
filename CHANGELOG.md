@@ -1,3 +1,11 @@
+## [0.8.10](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.8.9...v0.8.10) (2025-10-20)
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate reqwest to v0.12.24 ([206024a](https://gitlab.com/lx-industries/rmcp-actix-web/commit/206024ac7464f7c7620c5964b0183a13372008c3))
+* **deps:** update rust crate tokio to v1.48.0 ([e59a347](https://gitlab.com/lx-industries/rmcp-actix-web/commit/e59a347cae849efc62cd575ee9ad26aad2b9109e))
+
 ## [0.8.9](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.8.8...v0.8.9) (2025-10-13)
 
 
