@@ -1,3 +1,10 @@
+## [0.8.14](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.8.13...v0.8.14) (2025-11-22)
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust docker tag to v1.91.1 ([dfa7212](https://gitlab.com/lx-industries/rmcp-actix-web/commit/dfa721287b3ef00f787d3ca6f56ffeabbb036e2a))
+
 ## [0.8.13](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.8.12...v0.8.13) (2025-11-10)
 
 
