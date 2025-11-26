@@ -1,3 +1,13 @@
+## [0.8.17](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.8.16...v0.8.17) (2025-11-26)
+
+
+### Miscellaneous Chores
+
+* **deps:** update node.js to v24 ([b4c7ade](https://gitlab.com/lx-industries/rmcp-actix-web/commit/b4c7adee459c860d47c69b2029403779598f8041))
+* **deps:** update rust crate http to v1.4.0 ([0d80ee6](https://gitlab.com/lx-industries/rmcp-actix-web/commit/0d80ee6c633ea7b1da825b7acc6f4bd33bf5777d))
+* **deps:** update rust crate rmcp to v0.9.1 ([a93df09](https://gitlab.com/lx-industries/rmcp-actix-web/commit/a93df09c9468f86f277d71b68c5ef31dc1386db8))
+* **deps:** update rust:1.91.1 docker digest to 4a29b0d ([33e4ca9](https://gitlab.com/lx-industries/rmcp-actix-web/commit/33e4ca9d541e9b777c097f8f14dff376fa8e5955))
+
 ## [0.8.16](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.8.15...v0.8.16) (2025-11-24)
 
 
