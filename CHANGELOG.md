@@ -1,3 +1,12 @@
+## [0.8.18](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.8.17...v0.8.18) (2025-12-01)
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate actix-web to v4.12.1 ([af8a3ee](https://gitlab.com/lx-industries/rmcp-actix-web/commit/af8a3ee2ce525af25f763c2b6ea1e67ca15098f5))
+* **deps:** update rust crate insta to v1.44.3 ([e0c67dd](https://gitlab.com/lx-industries/rmcp-actix-web/commit/e0c67dd77a5b4ae8380fe80aaeeed53d6c467c15))
+* **deps:** update tokio-tracing monorepo ([c4b17ce](https://gitlab.com/lx-industries/rmcp-actix-web/commit/c4b17cee838267448fe8eaa0c77b292d0c36f68c))
+
 ## [0.8.17](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.8.16...v0.8.17) (2025-11-26)
 
 
