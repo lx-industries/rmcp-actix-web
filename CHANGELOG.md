@@ -1,3 +1,11 @@
+## [0.8.19](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.8.18...v0.8.19) (2025-12-03)
+
+
+### Miscellaneous Chores
+
+* **deps:** remove unused dependencies ([b40b944](https://gitlab.com/lx-industries/rmcp-actix-web/commit/b40b944c6116bf006e5ff627f16ee0e1348f0fc4))
+* **deps:** update rust crate rmcp to 0.10.0 ([57baf85](https://gitlab.com/lx-industries/rmcp-actix-web/commit/57baf8526624434e745e3f85a2999e038bc6d5e3))
+
 ## [0.8.18](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.8.17...v0.8.18) (2025-12-01)
 
 
