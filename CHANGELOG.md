@@ -1,3 +1,20 @@
+## [0.9.0](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.8.19...v0.9.0) (2025-12-13)
+
+
+### Features
+
+* remove SSE transport support ([38ed5c2](https://gitlab.com/lx-industries/rmcp-actix-web/commit/38ed5c2fbd413e2b42db351f7b7bb6554f5f5e65)), closes [#42](https://gitlab.com/lx-industries/rmcp-actix-web/issues/42)
+
+
+### Miscellaneous Chores
+
+* **deps:** update node.js to 9a2ed90 ([8509ba3](https://gitlab.com/lx-industries/rmcp-actix-web/commit/8509ba310e678f04c2d0544cc95d219b18b515ad))
+* **deps:** update node.js to v24.12.0 ([f5859d3](https://gitlab.com/lx-industries/rmcp-actix-web/commit/f5859d3d21fc868d09548230a181e428ee0c0939))
+* **deps:** update rust crate reqwest to v0.12.25 ([45ff3af](https://gitlab.com/lx-industries/rmcp-actix-web/commit/45ff3afd168a254ff8408882334e902553538695))
+* **deps:** update rust crate rmcp to 0.11.0 ([1413f0f](https://gitlab.com/lx-industries/rmcp-actix-web/commit/1413f0f8dcd15143dae5eaef73cd547a6427f49a))
+* **deps:** update rust docker tag to v1.92.0 ([8b68a8a](https://gitlab.com/lx-industries/rmcp-actix-web/commit/8b68a8adf90b677a099e63e24d22330ac2f90a3e))
+* **deps:** update rust:1.91.1 docker digest to 867f1d1 ([1e6ed3a](https://gitlab.com/lx-industries/rmcp-actix-web/commit/1e6ed3a62ef45b75b3ab114356d4dd73a6724408))
+
 ## [0.8.19](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.8.18...v0.8.19) (2025-12-03)
 
 
