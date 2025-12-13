@@ -26,7 +26,7 @@ expression: responses
             "a",
             "b"
           ],
-          "$schema": "http://json-schema.org/draft-07/schema#",
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
           "title": "SubRequest",
           "description": "Request structure for the subtraction operation.\n\nSimilar to SumRequest but for subtraction, showing consistent\nparameter definition patterns."
         },
@@ -42,7 +42,7 @@ expression: responses
           "required": [
             "value"
           ],
-          "$schema": "http://json-schema.org/draft-07/schema#",
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
           "title": "CalculatorResult"
         }
       },
@@ -67,7 +67,7 @@ expression: responses
             "a",
             "b"
           ],
-          "$schema": "http://json-schema.org/draft-07/schema#",
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
           "title": "SumRequest",
           "description": "Request structure for the sum operation.\n\nDemonstrates how to define typed parameters for MCP tools\nwith JSON schema generation support."
         },
@@ -83,7 +83,7 @@ expression: responses
           "required": [
             "value"
           ],
-          "$schema": "http://json-schema.org/draft-07/schema#",
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
           "title": "CalculatorResult"
         }
       }

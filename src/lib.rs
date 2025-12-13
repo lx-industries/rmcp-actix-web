@@ -13,7 +13,6 @@
 //!
 //! ## Features
 //!
-//! - **[SSE (Server-Sent Events) Transport][SseService]** *(DEPRECATED)*: Real-time, unidirectional communication from server to client
 //! - **[Streamable HTTP Transport][StreamableHttpService]**: Bidirectional communication with session management
 //! - **Full MCP Compatibility**: Implements the complete MCP specification
 //! - **Drop-in Replacement**: Same service implementations work with either Axum or actix-web transports
@@ -61,11 +60,6 @@
 //! }
 //! ```
 //!
-//! ## Transport Selection
-//!
-//! - **[Streamable HTTP][transport::streamable_http_server]**: Full bidirectional communication with session management
-//! - **[SSE Transport][transport::sse_server]** *(DEPRECATED)*: Legacy unidirectional transport, please migrate to StreamableHttp
-//!
 //! ## Examples
 //!
 //! See the `examples/` directory for complete working examples:
@@ -75,7 +69,7 @@
 //!
 //! ## Framework-Level Composition
 //!
-//! Both transports support framework-level composition aligned with RMCP patterns,
+//! The transport supports framework-level composition aligned with RMCP patterns,
 //! allowing you to mount MCP services at custom paths within existing actix-web applications.
 //!
 //! ### Service Composition
@@ -123,16 +117,6 @@
 //!
 //! ## Feature Flags
 //!
-//! This crate supports selective compilation of transport types:
-//!
-//! - `transport-streamable-http-server` (default): Enables StreamableHttp transport
-//! - `transport-sse-server` *(DEPRECATED)*: Enables legacy SSE transport
-//!
-//! To use only StreamableHttp transport, disable default features:
-//!
-//! ```toml
-//! [dependencies]
-//! rmcp-actix-web = { version = "0.6", default-features = false, features = ["transport-streamable-http-server"] }
-//! ```
+//! - `transport-streamable-http` (default): Enables StreamableHttp transport
 
 pub mod transport;

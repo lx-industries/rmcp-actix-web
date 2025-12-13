@@ -12,7 +12,6 @@ categories = ["network-programming", "web-programming"]
 
 [features]
 default = ["transport-streamable-http"]
-transport-sse = ["rmcp/transport-sse-server", "actix-rt", "tokio-util"]
 transport-streamable-http = ["rmcp/transport-streamable-http-server"]
 
 # Enable this if your MCP service will forward tokens to upstream APIs (non-compliant).
@@ -23,7 +22,6 @@ authorization-token-passthrough = []
 [dependencies]
 rmcp = { version = "0.11.0", features = ["base64", "server"] }
 actix-web = { version = "4", default-features = false }
-actix-rt = { version = "2", optional = true }
 async-stream = "0.3"
 bon = "3.7.1"
 tokio = { version = "1", features = [
@@ -37,7 +35,6 @@ futures = "0.3"
 tracing = "0.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["preserve_order"] }
-tokio-util = { version = "0.7", optional = true }
 tokio-stream = "0.1"
 
 [dev-dependencies]
@@ -46,7 +43,6 @@ rmcp = { version = "0.11.0", default-features = false, features = [
     "base64",
     "macros",
     "server",
-    "transport-sse-server",
     "transport-streamable-http-server",
 ] }
 anyhow = "1"

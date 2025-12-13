@@ -1,28 +1,9 @@
 //! Transport implementations for the Model Context Protocol using actix-web.
 //!
 //! This module provides HTTP-based transport layers that enable MCP services
-//! to communicate with clients over standard web protocols. Both transports
-//! are built on actix-web and provide different trade-offs between simplicity
-//! and functionality.
+//! to communicate with clients over standard web protocols.
 //!
-//! ## Available Transports
-//!
-//! ### SSE (Server-Sent Events)
-//!
-//! **DEPRECATED**: The SSE transport is deprecated in favor of StreamableHttp transport.
-//! Please migrate to [`StreamableHttpService`][crate::StreamableHttpService] for better
-//! bidirectional communication and session management.
-//!
-//! The [`sse_server`] module provides a unidirectional transport using the
-//! [Server-Sent Events][sse-spec] protocol. This is ideal for:
-//! - Real-time notifications and updates
-//! - Streaming data from server to client
-//! - Simple integration with existing web infrastructure
-//! - Compatibility with browsers and HTTP/1.1 proxies
-//!
-//! See [`SseService`][crate::SseService] for the main implementation.
-//!
-//! ### Streamable HTTP
+//! ## Streamable HTTP
 //!
 //! The [`streamable_http_server`] module provides a bidirectional transport
 //! with session management. This is ideal for:
@@ -33,12 +14,10 @@
 //!
 //! See [`StreamableHttpService`][crate::StreamableHttpService] for the main implementation.
 //!
-//! [sse-spec]: https://html.spec.whatwg.org/multipage/server-sent-events.html
-//!
 //! ## Framework-Level Composition
 //!
-//! Both transports support framework-level composition for mounting at custom paths
-//! using a unified builder pattern:
+//! The transport supports framework-level composition for mounting at custom paths
+//! using a builder pattern:
 //!
 //! ```rust,no_run
 //! use actix_web::{App, HttpServer, web};
@@ -76,26 +55,12 @@
 //!
 //! ## Protocol Compatibility
 //!
-//! Both transports implement the [MCP protocol specification][mcp] and are compatible
+//! The transport implements the [MCP protocol specification][mcp] and is compatible
 //! with all MCP clients that support HTTP transports. The wire protocol is
 //! identical to the Axum-based transports in the main [RMCP crate][rmcp].
 //!
 //! [mcp]: https://modelcontextprotocol.io/
 //! [rmcp]: https://docs.rs/rmcp/
-
-/// Server-Sent Events transport implementation.
-///
-/// **DEPRECATED**: Use StreamableHttp transport instead.
-/// Provides unidirectional streaming from server to client using the SSE protocol.
-#[cfg(feature = "transport-sse")]
-#[deprecated(
-    since = "0.7.0",
-    note = "SSE transport module is deprecated in favor of StreamableHttp transport"
-)]
-pub mod sse_server;
-#[cfg(feature = "transport-sse")]
-#[allow(deprecated)]
-pub use sse_server::{SseServerTransport, SseService, SseServiceBuilder};
 
 /// Streamable HTTP transport implementation.
 ///
