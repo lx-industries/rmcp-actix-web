@@ -1,3 +1,14 @@
+## [0.9.1](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.9.0...v0.9.1) (2025-12-20)
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate insta to v1.45.0 ([30fa712](https://gitlab.com/lx-industries/rmcp-actix-web/commit/30fa712f609bb92329754fda97608bcc97820aee))
+* **deps:** update rust crate reqwest to v0.12.26 ([e759db8](https://gitlab.com/lx-industries/rmcp-actix-web/commit/e759db8fd87ed398fb7a0bcdb7c829cb500dc5a5))
+* **deps:** update rust crate rmcp to 0.12.0 ([109e833](https://gitlab.com/lx-industries/rmcp-actix-web/commit/109e833bd329f25ca800410b4a1256b70a895806))
+* **deps:** update rust crate tracing to v0.1.44 ([b3bc112](https://gitlab.com/lx-industries/rmcp-actix-web/commit/b3bc112a294cd6ce282f30cb05e140aaa519b404))
+* **deps:** update rust:1.92.0 docker digest to 48851a8 ([62b05f5](https://gitlab.com/lx-industries/rmcp-actix-web/commit/62b05f54bc7d5c35f5a2911ada1bbfcb0b218818))
+
 ## [0.9.0](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.8.19...v0.9.0) (2025-12-13)
 
 
