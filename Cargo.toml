@@ -46,7 +46,7 @@ rmcp = { version = "0.12.0", default-features = false, features = [
     "transport-streamable-http-server",
 ] }
 anyhow = "1"
-reqwest = { version = "0.12", features = ["json", "stream"] }
+reqwest = { version = "0.13", features = ["json", "stream"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 chrono = "0.4"
 insta = { version = "1.41", features = ["json"] }
