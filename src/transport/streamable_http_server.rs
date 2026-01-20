@@ -74,6 +74,12 @@ use actix_web::{
 use futures::{Stream, StreamExt};
 use tokio_stream::wrappers::ReceiverStream;
 
+/// Type alias for the on_request hook function.
+///
+/// This hook is called for each incoming request, allowing users to propagate
+/// typed extensions from the actix-web `HttpRequest` to rmcp's `RequestContext::extensions`.
+pub type OnRequestHook = dyn Fn(&HttpRequest, &mut rmcp::model::Extensions) + Send + Sync + 'static;
+
 use rmcp::{
     RoleServer,
     model::{ClientJsonRpcMessage, ClientRequest},
@@ -86,7 +92,6 @@ use rmcp::{
     },
 };
 
-#[cfg(feature = "authorization-token-passthrough")]
 use rmcp::model::GetExtensions;
 
 #[cfg(feature = "authorization-token-passthrough")]
@@ -189,6 +194,26 @@ pub struct StreamableHttpService<
 
     /// Optional keep-alive interval for SSE connections
     sse_keep_alive: Option<Duration>,
+
+    /// Optional hook called for each request to propagate extensions from HttpRequest to RequestContext.
+    ///
+    /// This allows middleware-populated data (e.g., JWT claims) to be accessed in MCP handlers.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use std::sync::Arc;
+    /// use actix_web::HttpMessage;
+    ///
+    /// StreamableHttpService::builder()
+    ///     .on_request(Arc::new(|http_req, ext| {
+    ///         if let Some(claims) = http_req.extensions().get::<MyClaims>() {
+    ///             ext.insert(claims.clone());
+    ///         }
+    ///     }))
+    ///     .build()
+    /// ```
+    on_request: Option<Arc<OnRequestHook>>,
 }
 
 impl<S, M> Clone for StreamableHttpService<S, M> {
@@ -198,7 +223,40 @@ impl<S, M> Clone for StreamableHttpService<S, M> {
             session_manager: self.session_manager.clone(),
             stateful_mode: self.stateful_mode,
             sse_keep_alive: self.sse_keep_alive,
+            on_request: self.on_request.clone(),
         }
+    }
+}
+
+// Convenience methods for StreamableHttpServiceBuilder
+impl<S, M, State: streamable_http_service_builder::State> StreamableHttpServiceBuilder<S, M, State>
+where
+    State::OnRequest: streamable_http_service_builder::IsUnset,
+{
+    /// Sets the on_request hook using a closure.
+    ///
+    /// This is a convenience method that automatically wraps the closure in an `Arc`,
+    /// making it easier to use without manual Arc wrapping.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use actix_web::HttpMessage;
+    ///
+    /// StreamableHttpService::builder()
+    ///     .on_request_fn(|http_req, ext| {
+    ///         if let Some(claims) = http_req.extensions().get::<MyClaims>() {
+    ///             ext.insert(claims.clone());
+    ///         }
+    ///     })
+    ///     .build()
+    /// ```
+    pub fn on_request_fn(
+        self,
+        hook: impl Fn(&HttpRequest, &mut rmcp::model::Extensions) + Send + Sync + 'static,
+    ) -> StreamableHttpServiceBuilder<S, M, streamable_http_service_builder::SetOnRequest<State>>
+    {
+        self.on_request(Arc::new(hook))
     }
 }
 
@@ -214,6 +272,8 @@ struct AppData<S, M> {
     stateful_mode: bool,
     /// Optional keep-alive interval for SSE connections
     sse_keep_alive: Option<Duration>,
+    /// Optional hook for propagating extensions from HttpRequest to RequestContext
+    on_request: Option<Arc<OnRequestHook>>,
 }
 
 impl<S, M> AppData<S, M> {
@@ -416,6 +476,7 @@ where
             session_manager: self.session_manager,
             stateful_mode: self.stateful_mode,
             sse_keep_alive: self.sse_keep_alive,
+            on_request: self.on_request,
         };
 
         web::scope(path)
@@ -574,6 +635,11 @@ where
                 match message {
                     #[allow(unused_mut)]
                     ClientJsonRpcMessage::Request(mut request_msg) => {
+                        // Call on_request hook to propagate extensions from HttpRequest
+                        if let Some(ref hook) = service.on_request {
+                            hook(&req, request_msg.request.extensions_mut());
+                        }
+
                         // Extract and inject Authorization header for existing sessions.
                         //
                         // SECURITY: This transport forwards Authorization headers to MCP services.
@@ -704,6 +770,11 @@ where
                         return Ok(
                             HttpResponse::UnprocessableEntity().body("Expected initialize request")
                         );
+                    }
+
+                    // Call on_request hook to propagate extensions from HttpRequest
+                    if let Some(ref hook) = service.on_request {
+                        hook(&req, request_msg.request.extensions_mut());
                     }
 
                     // Extract and inject Authorization header if present
@@ -840,6 +911,11 @@ where
                 #[allow(unused_mut)]
                 ClientJsonRpcMessage::Request(mut request) => {
                     tracing::debug!(?request, "Processing request in stateless mode");
+
+                    // Call on_request hook to propagate extensions from HttpRequest
+                    if let Some(ref hook) = service.on_request {
+                        hook(&req, request.request.extensions_mut());
+                    }
 
                     // Extract and inject Authorization header if present
                     //

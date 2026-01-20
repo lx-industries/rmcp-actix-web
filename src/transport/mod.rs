@@ -53,6 +53,35 @@
 //! }
 //! ```
 //!
+//! ## Propagating Extensions from Middleware
+//!
+//! Use the `on_request` hook to propagate typed data from actix-web middleware
+//! to MCP request handlers. This is useful for passing authentication claims,
+//! request metadata, or other context from HTTP middleware to your MCP service:
+//!
+//! ```rust,ignore
+//! use rmcp_actix_web::transport::StreamableHttpService;
+//! use actix_web::HttpMessage;
+//! use std::sync::Arc;
+//!
+//! #[derive(Clone)]
+//! struct JwtClaims { user_id: String }
+//!
+//! let service = StreamableHttpService::builder()
+//!     .service_factory(Arc::new(|| Ok(MyService::new())))
+//!     .session_manager(Arc::new(LocalSessionManager::default()))
+//!     .on_request_fn(|http_req, ext| {
+//!         // Access data populated by actix-web middleware
+//!         if let Some(claims) = http_req.extensions().get::<JwtClaims>() {
+//!             ext.insert(claims.clone());
+//!         }
+//!     })
+//!     .build();
+//! ```
+//!
+//! The propagated extensions are then accessible in your MCP service handlers
+//! via `RequestContext::extensions`.
+//!
 //! ## Protocol Compatibility
 //!
 //! The transport implements the [MCP protocol specification][mcp] and is compatible
@@ -69,8 +98,11 @@
 pub mod streamable_http_server;
 #[cfg(feature = "transport-streamable-http")]
 pub use streamable_http_server::{
-    StreamableHttpServerConfig, StreamableHttpService, StreamableHttpServiceBuilder,
+    OnRequestHook, StreamableHttpServerConfig, StreamableHttpService, StreamableHttpServiceBuilder,
 };
+
+/// Re-export of rmcp's Extensions type for use with on_request hook.
+pub use rmcp::model::Extensions;
 
 /// Authorization header value for MCP proxy scenarios.
 ///

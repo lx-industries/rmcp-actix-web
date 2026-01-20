@@ -174,6 +174,32 @@ Each example includes detailed documentation and curl commands for testing.
 - **Custom Paths**: Mount services at any path using actix-web's Scope system
 - **Built on actix-web**: Leverages the mature actix-web framework
 
+### Middleware Extension Propagation
+
+Use the `on_request` hook to propagate typed data from actix-web middleware to MCP request handlers. This is useful for passing JWT claims, user context, or other authentication data:
+
+```rust
+use rmcp_actix_web::StreamableHttpService;
+use actix_web::HttpMessage;
+use std::sync::Arc;
+
+#[derive(Clone)]
+struct JwtClaims { user_id: String }
+
+let http_service = StreamableHttpService::builder()
+    .service_factory(Arc::new(|| Ok(MyMcpService::new())))
+    .session_manager(Arc::new(LocalSessionManager::default()))
+    .on_request_fn(|http_req, ext| {
+        // Access data populated by actix-web middleware
+        if let Some(claims) = http_req.extensions().get::<JwtClaims>() {
+            ext.insert(claims.clone());
+        }
+    })
+    .build();
+```
+
+The propagated extensions are accessible in your MCP service handlers via `RequestContext::extensions`.
+
 ### Proxy Support
 - **Authorization Forwarding**: Bearer tokens from Authorization headers can be forwarded to MCP services (requires `authorization-token-passthrough` feature)
 - **MCP Proxy Pattern**: Enable MCP services to act as proxies to backend APIs
