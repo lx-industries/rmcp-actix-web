@@ -1,3 +1,10 @@
+## [0.10.0](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.9.5...v0.10.0) (2026-01-21)
+
+
+### Features
+
+* **transport:** add on_request hook for extension propagation ([c4b781a](https://gitlab.com/lx-industries/rmcp-actix-web/commit/c4b781a5b2a7ffe89e7f853d9fa6dab190ff6bc8)), closes [#43](https://gitlab.com/lx-industries/rmcp-actix-web/issues/43)
+
 ## [0.9.5](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.9.4...v0.9.5) (2026-01-19)
 
 
