@@ -159,7 +159,7 @@ impl ServerHandler for ProxyService {
 
     async fn initialize(
         &self,
-        request: InitializeRequestParam,
+        request: InitializeRequestParams,
         context: RequestContext<RoleServer>,
     ) -> Result<InitializeResult, McpError> {
         // Store peer info

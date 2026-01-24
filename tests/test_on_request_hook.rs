@@ -88,7 +88,7 @@ mod extension_test_service {
 
         async fn initialize(
             &self,
-            _request: InitializeRequestParam,
+            _request: InitializeRequestParams,
             context: RequestContext<RoleServer>,
         ) -> Result<InitializeResult, McpError> {
             // Log whether claims were received during initialization

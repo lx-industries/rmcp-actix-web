@@ -108,7 +108,7 @@ impl ServerHandler for HeadersTestService {
 
     async fn initialize(
         &self,
-        _request: InitializeRequestParam,
+        _request: InitializeRequestParams,
         context: RequestContext<RoleServer>,
     ) -> Result<InitializeResult, McpError> {
         // Try to extract Authorization header from RequestContext extensions

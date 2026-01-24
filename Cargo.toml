@@ -20,7 +20,7 @@ transport-streamable-http = ["rmcp/transport-streamable-http-server"]
 authorization-token-passthrough = []
 
 [dependencies]
-rmcp = { version = "0.13.0", features = ["base64", "server"] }
+rmcp = { version = "0.14.0", features = ["base64", "server"] }
 actix-web = { version = "4", default-features = false }
 async-stream = "0.3"
 bon = "3.7.1"
@@ -39,7 +39,7 @@ tokio-stream = "0.1"
 
 [dev-dependencies]
 actix-web = "4"
-rmcp = { version = "0.13.0", default-features = false, features = [
+rmcp = { version = "0.14.0", default-features = false, features = [
     "base64",
     "macros",
     "server",

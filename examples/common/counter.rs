@@ -123,7 +123,7 @@ impl ServerHandler for Counter {
 
     async fn list_resources(
         &self,
-        _request: Option<PaginatedRequestParam>,
+        _request: Option<PaginatedRequestParams>,
         _: RequestContext<RoleServer>,
     ) -> Result<ListResourcesResult, McpError> {
         Ok(ListResourcesResult {
@@ -138,7 +138,7 @@ impl ServerHandler for Counter {
 
     async fn read_resource(
         &self,
-        ReadResourceRequestParam { uri }: ReadResourceRequestParam,
+        ReadResourceRequestParams { uri, .. }: ReadResourceRequestParams,
         _: RequestContext<RoleServer>,
     ) -> Result<ReadResourceResult, McpError> {
         match uri.as_str() {
@@ -165,7 +165,7 @@ impl ServerHandler for Counter {
 
     async fn list_prompts(
         &self,
-        _request: Option<PaginatedRequestParam>,
+        _request: Option<PaginatedRequestParams>,
         _: RequestContext<RoleServer>,
     ) -> Result<ListPromptsResult, McpError> {
         Ok(ListPromptsResult {
@@ -186,7 +186,9 @@ impl ServerHandler for Counter {
 
     async fn get_prompt(
         &self,
-        GetPromptRequestParam { name, arguments }: GetPromptRequestParam,
+        GetPromptRequestParams {
+            name, arguments, ..
+        }: GetPromptRequestParams,
         _: RequestContext<RoleServer>,
     ) -> Result<GetPromptResult, McpError> {
         match name.as_str() {
@@ -213,7 +215,7 @@ impl ServerHandler for Counter {
 
     async fn list_resource_templates(
         &self,
-        _request: Option<PaginatedRequestParam>,
+        _request: Option<PaginatedRequestParams>,
         _: RequestContext<RoleServer>,
     ) -> Result<ListResourceTemplatesResult, McpError> {
         Ok(ListResourceTemplatesResult {
@@ -225,7 +227,7 @@ impl ServerHandler for Counter {
 
     async fn initialize(
         &self,
-        _request: InitializeRequestParam,
+        _request: InitializeRequestParams,
         context: RequestContext<RoleServer>,
     ) -> Result<InitializeResult, McpError> {
         if let Some(http_request_part) = context.extensions.get::<http::request::Parts>() {
