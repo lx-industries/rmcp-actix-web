@@ -188,12 +188,14 @@ integration-js:
   stage: integration
   before_script:
     - !reference [.rust-template, before_script]
+    - !reference [.sccache-rust, before_script]
     - apt-get update -qq && apt-get install -y -qq curl
     - curl -fsSL https://nodejs.org/dist/v20.11.1/node-v20.11.1-linux-x64.tar.xz | tar -xJ -C /usr/local --strip-components=1
     - node --version
     - npm --version
   script:
     - cargo test --package rmcp-actix-web --test test_with_js --verbose
+    - sccache --show-stats || true
   cache:
     - <<: *cargo-registry-cache
     - <<: *cargo-build-cache
