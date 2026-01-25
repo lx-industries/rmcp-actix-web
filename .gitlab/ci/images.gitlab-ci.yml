@@ -1,6 +1,7 @@
 # Docker image build configuration for rmcp-actix-web
 
 variables:
+  GIT_FETCH_EXTRA_FLAGS: "+refs/heads/$CI_DEFAULT_BRANCH:refs/remotes/origin/$CI_DEFAULT_BRANCH"
   RUST_X86_64_DOCKERFILE_DIR: "images/rust/x86_64-unknown-linux-gnu"
   RUST_X86_64_OCI_IMAGE_NAME: "images/rust"
   RUST_X86_64_OCI_IMAGE_VARIANT: "x86_64-unknown-linux-gnu"
@@ -25,7 +26,7 @@ image:rust-x86_64-unknown-linux-gnu:
         paths:
           - "images/rust/x86_64-unknown-linux-gnu/Dockerfile"
           - ".gitlab/ci/images.gitlab-ci.yml"
-      if: '$CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH'
+      if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH'
   script: |
     IMAGE_TAG=$(grep "^FROM rust:" ${DOCKERFILE_DIR}/Dockerfile | sed -r "s/[^:]*:([0-9]+\.[0-9]+\.[0-9]+).*/\1/")
     OCI_PATH="$CI_REGISTRY_IMAGE/${OCI_IMAGE_NAME}:${IMAGE_TAG}-${OCI_IMAGE_VARIANT}"
@@ -51,7 +52,7 @@ push:rust-x86_64-unknown-linux-gnu:
         paths:
           - "images/rust/x86_64-unknown-linux-gnu/Dockerfile"
           - ".gitlab/ci/images.gitlab-ci.yml"
-      if: '$CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH'
+      if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH'
   script: |
     IMAGE_TAG=$(grep "^FROM rust:" ${DOCKERFILE_DIR}/Dockerfile | sed -r "s/[^:]*:([0-9]+\.[0-9]+\.[0-9]+).*/\1/")
     OCI_PATH="$CI_REGISTRY_IMAGE/${OCI_IMAGE_NAME}:${IMAGE_TAG}-${OCI_IMAGE_VARIANT}"
