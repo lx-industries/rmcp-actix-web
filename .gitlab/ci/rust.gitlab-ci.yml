@@ -169,8 +169,12 @@ doc-test:
 examples:
   extends: .rust-template
   stage: examples
+  before_script:
+    - !reference [.rust-template, before_script]
+    - !reference [.sccache-rust, before_script]
   script:
     - cargo build --examples --verbose
+    - sccache --show-stats || true
   cache:
     - <<: *cargo-registry-cache
     - <<: *cargo-build-cache
