@@ -1,7 +1,9 @@
 # GitLab CI configuration for rmcp-actix-web
 
-# Include Rust-specific CI configuration
+# Include CI configuration files
 include:
+  - local: '.gitlab/ci/common.gitlab-ci.yml'
+  - local: '.gitlab/ci/images.gitlab-ci.yml'
   - local: '.gitlab/ci/rust.gitlab-ci.yml'
 
 # Global variables for package versions
