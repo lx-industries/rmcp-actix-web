@@ -35,7 +35,7 @@
 
 # Unified Rust job template - consolidated configuration for all Rust jobs
 .rust-template:
-  image: rust:1.93.0@sha256:4c7eb947d7e078f5c076e086c7b75c36ea0ec7c685f2244b3d79306deb7e44b7
+  image: ${CI_REGISTRY_IMAGE}/images/rust:1.93.0-x86_64-unknown-linux-gnu@sha256:421ec03d0a3cbf2426f89b47651da1bc15f33c0cb69c0cf233019ff10e8c2c6c
   variables:
     # Assume the PWD is CI_PROJECT_DIR, this way we don't have to deal with
     # Windows (`\`) vs Linux (`/`) path separators.
