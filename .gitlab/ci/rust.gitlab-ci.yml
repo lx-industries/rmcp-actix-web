@@ -54,8 +54,12 @@
 build:
   extends: .rust-template
   stage: build
+  before_script:
+    - !reference [.rust-template, before_script]
+    - !reference [.sccache-rust, before_script]
   script:
     - cargo build --verbose
+    - sccache --show-stats || true
   cache:
     - <<: *cargo-registry-cache
     - <<: *cargo-build-cache
