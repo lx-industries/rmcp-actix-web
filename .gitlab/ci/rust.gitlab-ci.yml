@@ -68,6 +68,9 @@ build:
 test:
   extends: .rust-template
   stage: test
+  before_script:
+    - !reference [.rust-template, before_script]
+    - !reference [.sccache-rust, before_script]
   script:
     # Test with default features
     - cargo test --verbose -- --skip test_with_js
@@ -75,6 +78,7 @@ test:
     - cargo test --verbose --features authorization-token-passthrough -- --skip test_with_js
     # Test with all features
     - cargo test --verbose --all-features -- --skip test_with_js
+    - sccache --show-stats || true
   cache:
     - <<: *cargo-registry-cache
     - <<: *cargo-build-cache
