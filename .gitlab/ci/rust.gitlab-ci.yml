@@ -151,9 +151,13 @@ rustdoc:
 doc-test:
   extends: .rust-template
   stage: docs
+  before_script:
+    - !reference [.rust-template, before_script]
+    - !reference [.sccache-rust, before_script]
   script:
     # Run documentation tests to ensure examples compile
     - cargo test --doc --all-features
+    - sccache --show-stats || true
   cache:
     - <<: *cargo-registry-cache
     - <<: *cargo-build-cache
