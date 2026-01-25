@@ -9,6 +9,7 @@
   - "tests/**/*"
   - "examples/**/*"
   - ".cargo/**/*"
+  - ".gitlab/ci/common.gitlab-ci.yml"
   - ".gitlab/ci/rust.gitlab-ci.yml"
 
 # Cache configuration patterns for optimal build performance
