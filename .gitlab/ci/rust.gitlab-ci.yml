@@ -122,6 +122,9 @@ fmt:
 rustdoc:
   extends: .rust-template
   stage: docs
+  before_script:
+    - !reference [.rust-template, before_script]
+    - !reference [.sccache-rust, before_script]
   script:
     # Build documentation with all features and check for warnings
     - cargo doc --all-features --no-deps
@@ -130,6 +133,7 @@ rustdoc:
     - '! grep -E "warning.*missing documentation" doc-output.txt || (echo "Missing documentation found!" && exit 1)'
     # Also build with private items to ensure internal documentation is complete
     - cargo rustdoc -- --document-private-items
+    - sccache --show-stats || true
   cache:
     - <<: *cargo-registry-cache
     - <<: *cargo-build-cache
