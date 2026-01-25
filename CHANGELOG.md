@@ -1,3 +1,35 @@
+## [0.11.0](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.10.0...v0.11.0) (2026-01-25)
+
+
+### Features
+
+* **ci:** add common CI templates for sccache and docker-in-docker ([1f97940](https://gitlab.com/lx-industries/rmcp-actix-web/commit/1f97940661077f888fad8e5427c38829299b48bc))
+* **ci:** add Docker image build and push jobs ([14c6f98](https://gitlab.com/lx-industries/rmcp-actix-web/commit/14c6f98f004653187ba51568c88aaa744f0090a2))
+* **ci:** add Dockerfile for custom Rust image with sccache ([5b0c866](https://gitlab.com/lx-industries/rmcp-actix-web/commit/5b0c866743f09ee27ea1b31cf952d5b779a3c378))
+* **ci:** add sccache to build job ([f1f5b3e](https://gitlab.com/lx-industries/rmcp-actix-web/commit/f1f5b3efe420bba3c692b181690b78bf0a6ac1b7))
+* **ci:** add sccache to clippy job ([3798954](https://gitlab.com/lx-industries/rmcp-actix-web/commit/3798954f091e95c9c1ad60497713ee7f94b964f2))
+* **ci:** add sccache to doc-test job ([ab343d6](https://gitlab.com/lx-industries/rmcp-actix-web/commit/ab343d67067f04590376a9bd9b456055fe59fcb9))
+* **ci:** add sccache to examples job ([b3e9f82](https://gitlab.com/lx-industries/rmcp-actix-web/commit/b3e9f829c22d23fefa5d48ca550bb787cac6f327))
+* **ci:** add sccache to integration-js job ([92e88db](https://gitlab.com/lx-industries/rmcp-actix-web/commit/92e88db195efbc3702786b0152e4d8adeb310c97))
+* **ci:** add sccache to rustdoc job ([c2031f7](https://gitlab.com/lx-industries/rmcp-actix-web/commit/c2031f7aaa82ba6749075eb2a9d5847438e060cc))
+* **ci:** add sccache to test job ([bdaea84](https://gitlab.com/lx-industries/rmcp-actix-web/commit/bdaea84eed92cf0ecf9eeb0b1a18df4dcc1a1421))
+* **ci:** include common and images CI files ([e9584f9](https://gitlab.com/lx-industries/rmcp-actix-web/commit/e9584f981be04f95d543b8861a07b89f6ce67c83))
+* **ci:** track common.gitlab-ci.yml in rust-changes ([0ec9b82](https://gitlab.com/lx-industries/rmcp-actix-web/commit/0ec9b8227a83f89ede992a1558faa31a3d561958))
+* **ci:** use custom Rust image with sccache ([eb761c3](https://gitlab.com/lx-industries/rmcp-actix-web/commit/eb761c32344829230f1066c039f395e62e7d41a1))
+
+
+### Bug Fixes
+
+* **ci:** disable auto-cancel for release pipelines ([ac48b09](https://gitlab.com/lx-industries/rmcp-actix-web/commit/ac48b09c3b2cfeac16dcab8a3916bdf2697319e3))
+* **ci:** only build/push images on push events to main ([0cb4a21](https://gitlab.com/lx-industries/rmcp-actix-web/commit/0cb4a218b83c2a6a15268933ad52791c92668fa5))
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate rmcp to 0.14.0 ([95d2ed1](https://gitlab.com/lx-industries/rmcp-actix-web/commit/95d2ed1cb88c74193f5f3f700989270b76f76f09))
+* **deps:** update rust docker tag to v1.93.0 ([6aeefb3](https://gitlab.com/lx-industries/rmcp-actix-web/commit/6aeefb35b0ecf7c5e6b782283b8455b8dd21146f))
+* **deps:** update rust:1.93.0 docker digest to 4c7eb94 ([c13763e](https://gitlab.com/lx-industries/rmcp-actix-web/commit/c13763ee85730cc546388712e9f888ad9fe603da))
+
 ## [0.10.0](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.9.5...v0.10.0) (2026-01-21)
 
 
