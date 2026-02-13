@@ -22,15 +22,10 @@ variables:
       - "all"
       - "rust-x86_64-unknown-linux-gnu"
     value: "false"
+  # renovate: datasource=npm depName=@commitlint/cli versioning=npm
   COMMITLINT_CLI_VERSION: "17.6.1"
+  # renovate: datasource=npm depName=@commitlint/config-conventional versioning=npm
   COMMITLINT_CONFIG_VERSION: "17.6.1"
-  SEMANTIC_RELEASE_VERSION: "21.0.7"
-  SEMANTIC_RELEASE_CHANGELOG_VERSION: "6.0.3"
-  SEMANTIC_RELEASE_GIT_VERSION: "10.0.1"
-  SEMANTIC_RELEASE_GITLAB_VERSION: "12.1.1"
-  SEMANTIC_RELEASE_EXEC_VERSION: "6.0.3"
-  SEMANTIC_RELEASE_CARGO_VERSION: "2.4.44"
-  CONVENTIONAL_CHANGELOG_CONVENTIONALCOMMITS_VERSION: "7.0.2"
 
 # Workflow rules for automatic pipeline cancellation
 workflow:
@@ -52,10 +47,27 @@ workflow:
 # Semantic release job template - common setup for semantic-release jobs
 .semantic-release-template: &semantic-release-template
   image: rust:1.93.0@sha256:4c7eb947d7e078f5c076e086c7b75c36ea0ec7c685f2244b3d79306deb7e44b7
+  variables:
+    # renovate: datasource=npm depName=semantic-release versioning=npm
+    SEMANTIC_RELEASE_VERSION: "21.0.7"
+    # renovate: datasource=npm depName=@semantic-release/changelog versioning=npm
+    SEMANTIC_RELEASE_CHANGELOG_VERSION: "6.0.3"
+    # renovate: datasource=npm depName=@semantic-release/git versioning=npm
+    SEMANTIC_RELEASE_GIT_VERSION: "10.0.1"
+    # renovate: datasource=npm depName=@semantic-release/gitlab versioning=npm
+    SEMANTIC_RELEASE_GITLAB_VERSION: "12.1.1"
+    # renovate: datasource=npm depName=@semantic-release/exec versioning=npm
+    SEMANTIC_RELEASE_EXEC_VERSION: "6.0.3"
+    # renovate: datasource=npm depName=conventional-changelog-conventionalcommits versioning=npm
+    CONVENTIONAL_CHANGELOG_CONVENTIONALCOMMITS_VERSION: "7.0.2"
+    # renovate: datasource=github-releases depName=semantic-release-cargo/semantic-release-cargo extractVersionTemplate="^v(?<version>.*)$"
+    SEMANTIC_RELEASE_CARGO_VERSION: "2.4.44"
+    # renovate: datasource=node-version depName=node versioning=node
+    NODE_VERSION: "20.11.1"
   before_script:
     # Install Node.js in Rust image
     - apt-get update -qq && apt-get install -y -qq curl
-    - curl -fsSL https://nodejs.org/dist/v20.11.1/node-v20.11.1-linux-x64.tar.xz | tar -xJ -C /usr/local --strip-components=1
+    - curl -fsSL https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz | tar -xJ -C /usr/local --strip-components=1
     - node --version
     - npm --version
     # Install semantic-release and plugins
