@@ -6,7 +6,8 @@
     RUSTC_WRAPPER: "sccache"
     SCCACHE_LOG: "warn"
   before_script:
-    - sccache --version || true
+    - echo "RUSTC_WRAPPER=$RUSTC_WRAPPER"
+    - sccache --version
 
 # Docker-in-Docker variables (reusable anchor)
 .docker-in-docker-variables: &docker-in-docker-variables
