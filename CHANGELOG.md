@@ -1,3 +1,30 @@
+## [0.11.1](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.11.0...v0.11.1) (2026-02-13)
+
+
+### Bug Fixes
+
+* **ci:** add IMAGE_BUILD_FORCE and IMAGE_PUSH_FORCE pipeline variables ([65a71de](https://gitlab.com/lx-industries/rmcp-actix-web/commit/65a71de59a79bcccdda5745b3514daa1dbf93a1a))
+* **ci:** add renovate tracking comments to semantic-release and commitlint versions ([bf6754b](https://gitlab.com/lx-industries/rmcp-actix-web/commit/bf6754bf88cf380983f43b1308704722e58b5a65))
+* **ci:** hardcode registry path and update Rust image digest ([b7c0480](https://gitlab.com/lx-industries/rmcp-actix-web/commit/b7c0480e54fc5ae542f033f5c59f2ecb417ddb0c))
+* **ci:** use extends instead of YAML anchors for semantic-release jobs ([2e8531b](https://gitlab.com/lx-industries/rmcp-actix-web/commit/2e8531bfd45c94e26ecbd5cf24cfbceda11a9327))
+* **ci:** wire sccache variables into Rust jobs via extends ([04772f2](https://gitlab.com/lx-industries/rmcp-actix-web/commit/04772f23c2993659c0280aa985ed1ab3d890366a))
+
+
+### Miscellaneous Chores
+
+* **deps:** update docker docker tag to v29 ([0928de0](https://gitlab.com/lx-industries/rmcp-actix-web/commit/0928de013101dea0c450fff2b85bf816213b4a56))
+* **deps:** update node.js to 1de022d ([ec36a68](https://gitlab.com/lx-industries/rmcp-actix-web/commit/ec36a68d8c8594721810a3788ea5b445ab29ac58))
+* **deps:** update node.js to v24.13.1 ([f71e2c7](https://gitlab.com/lx-industries/rmcp-actix-web/commit/f71e2c732032b5ad1cf6625b094ee03dcd75a1bf))
+* **deps:** update registry.gitlab.com/lx-industries/rmcp-actix-web/images/rust docker tag to v1.93.1 ([bb61277](https://gitlab.com/lx-industries/rmcp-actix-web/commit/bb612773b6462697c4884a3df425a512ddad2b96))
+* **deps:** update registry.gitlab.com/lx-industries/rmcp-actix-web/images/rust:1.93.0-x86_64-unknown-linux-gnu docker digest to 0b2b733 ([1a5b61b](https://gitlab.com/lx-industries/rmcp-actix-web/commit/1a5b61b49ab1bfd0b4ee4b57ae3511b15cf0bd8a))
+* **deps:** update rust crate anyhow to v1.0.101 ([f24e11e](https://gitlab.com/lx-industries/rmcp-actix-web/commit/f24e11e19f920a641c72ef85a8073bf1997ebd9c))
+* **deps:** update rust crate bon to v3.9.0 ([b46a3d7](https://gitlab.com/lx-industries/rmcp-actix-web/commit/b46a3d76d7ec5c6688b45149ae3c91806c4db676))
+* **deps:** update rust crate insta to v1.46.3 ([f5f8e36](https://gitlab.com/lx-industries/rmcp-actix-web/commit/f5f8e368d34dc1574ccbdeb05d2a2b53d607bbb8))
+* **deps:** update rust crate reqwest to v0.13.2 ([946d8d6](https://gitlab.com/lx-industries/rmcp-actix-web/commit/946d8d642daeca5ef3e7a1f8417a699ace20a9b9))
+* **deps:** update rust crate rmcp to 0.15.0 ([0029fc8](https://gitlab.com/lx-industries/rmcp-actix-web/commit/0029fc8131acb26ba67be6841fd04ae124c6a8f8))
+* **deps:** update rust docker tag to v1.93.1 ([e942a81](https://gitlab.com/lx-industries/rmcp-actix-web/commit/e942a81af5a42bc22d4537fb68d07a88cdbeb246))
+* **deps:** update rust:1.93.0 docker digest to bbde3ca ([bcf2c04](https://gitlab.com/lx-industries/rmcp-actix-web/commit/bcf2c0418ebdd087bb629a6f2d5aeee64cb60024))
+
 ## [0.11.0](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.10.0...v0.11.0) (2026-01-25)
 
 
