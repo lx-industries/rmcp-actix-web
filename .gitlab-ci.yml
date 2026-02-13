@@ -46,7 +46,7 @@ workflow:
 
 # Semantic release job template - common setup for semantic-release jobs
 .semantic-release-template: &semantic-release-template
-  image: rust:1.93.0@sha256:4c7eb947d7e078f5c076e086c7b75c36ea0ec7c685f2244b3d79306deb7e44b7
+  image: rust:1.93.0@sha256:bbde3ca426faeebab3eb58b8005d3d6da70607817a14bb92a55c94611d4d905f
   variables:
     # renovate: datasource=npm depName=semantic-release versioning=npm
     SEMANTIC_RELEASE_VERSION: "21.0.7"

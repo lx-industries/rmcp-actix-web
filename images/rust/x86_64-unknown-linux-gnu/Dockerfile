@@ -1,4 +1,4 @@
-FROM rust:1.93.0@sha256:484f5078e589013ba67ef76a861ef04de926a5df7cf66282999b5abc8e836ac9
+FROM rust:1.93.0@sha256:bbde3ca426faeebab3eb58b8005d3d6da70607817a14bb92a55c94611d4d905f
 
 # renovate: datasource=github-releases depName=mozilla/sccache
 ARG SCCACHE_VERSION=0.13.0
