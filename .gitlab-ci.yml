@@ -8,6 +8,20 @@ include:
 
 # Global variables for package versions
 variables:
+  IMAGE_BUILD_FORCE:
+    description: "Build images even when there are no changes."
+    options:
+      - "false"
+      - "all"
+      - "rust-x86_64-unknown-linux-gnu"
+    value: "false"
+  IMAGE_PUSH_FORCE:
+    description: "Push images even when there are no changes."
+    options:
+      - "false"
+      - "all"
+      - "rust-x86_64-unknown-linux-gnu"
+    value: "false"
   COMMITLINT_CLI_VERSION: "17.6.1"
   COMMITLINT_CONFIG_VERSION: "17.6.1"
   SEMANTIC_RELEASE_VERSION: "21.0.7"
