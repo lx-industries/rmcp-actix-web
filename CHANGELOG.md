@@ -1,3 +1,15 @@
+## [0.12.0](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.11.1...v0.12.0) (2026-03-03)
+
+
+### Features
+
+* add devcontainer setup with firewall and justfile ([a11ced3](https://gitlab.com/lx-industries/rmcp-actix-web/commit/a11ced38b0ceab0a056f5208ea435929c11f07d2))
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate rmcp to 0.17.0 ([4ab88b6](https://gitlab.com/lx-industries/rmcp-actix-web/commit/4ab88b6b3567ae92bf767e3606540a39c9fbb758))
+
 ## [0.11.1](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.11.0...v0.11.1) (2026-02-13)
 
 
