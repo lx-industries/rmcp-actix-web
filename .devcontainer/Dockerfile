@@ -13,6 +13,18 @@ ENV NPM_CONFIG_MINIMUM_RELEASE_AGE=1440
 # -- Forge CLI config directory ------------------------------------------------
 ENV GLAB_CONFIG_DIR=/tmp/glab-config
 
+# -- Rust components (clippy, rustfmt) -----------------------------------------
+RUN rustup component add clippy rustfmt
+
+# -- Node.js (needed for JS interop tests) ------------------------------------
+# renovate: datasource=node-version depName=node
+ARG NODE_VERSION="22.14.0"
+RUN arch="$(dpkg --print-architecture)" \
+    && case "$arch" in amd64) node_arch=x64;; arm64) node_arch=arm64;; *) echo "Unsupported arch: $arch" >&2; exit 1;; esac \
+    && curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${node_arch}.tar.xz" \
+       | tar -xJ --strip-components=1 -C /usr/local \
+    && node --version && npm --version
+
 # -- System packages -----------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
         openssh-client \
