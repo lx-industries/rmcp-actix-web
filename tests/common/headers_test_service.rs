@@ -96,14 +96,9 @@ impl HeadersTestService {
 #[tool_handler]
 impl ServerHandler for HeadersTestService {
     fn get_info(&self) -> ServerInfo {
-        ServerInfo {
-            protocol_version: ProtocolVersion::V_2024_11_05,
-            capabilities: ServerCapabilities::builder().enable_tools().build(),
-            server_info: Implementation::from_build_env(),
-            instructions: Some(
-                "Test service for verifying Authorization header forwarding".to_string(),
-            ),
-        }
+        ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
+            .with_protocol_version(ProtocolVersion::V_2024_11_05)
+            .with_instructions("Test service for verifying Authorization header forwarding")
     }
 
     async fn initialize(

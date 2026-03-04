@@ -145,16 +145,12 @@ impl ProxyService {
 #[tool_handler]
 impl ServerHandler for ProxyService {
     fn get_info(&self) -> ServerInfo {
-        ServerInfo {
-            protocol_version: ProtocolVersion::V_2024_11_05,
-            capabilities: ServerCapabilities::builder().enable_tools().build(),
-            server_info: Implementation::from_build_env(),
-            instructions: Some(
+        ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
+            .with_protocol_version(ProtocolVersion::V_2024_11_05)
+            .with_instructions(
                 "MCP proxy service that forwards Authorization headers to backend APIs. \
-                 Provide a Bearer token in the Authorization header to authenticate."
-                    .to_string(),
-            ),
-        }
+                 Provide a Bearer token in the Authorization header to authenticate.",
+            )
     }
 
     async fn initialize(
