@@ -1,3 +1,15 @@
+## [0.12.2](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.12.1...v0.12.2) (2026-03-09)
+
+
+### Miscellaneous Chores
+
+* **deps:** update docker docker tag to v29.3.0 ([a2644fd](https://gitlab.com/lx-industries/rmcp-actix-web/commit/a2644fde4a46c8146d65410d52176969798d06bd))
+* **deps:** update docker:29.3.0-dind docker digest to 1ba1844 ([f4dc18a](https://gitlab.com/lx-industries/rmcp-actix-web/commit/f4dc18a96a0eedee5df0d0c396bd86e56faf782a))
+* **deps:** update registry.gitlab.com/lx-industries/rmcp-actix-web/images/rust docker tag to v1.94.0 ([d80ad78](https://gitlab.com/lx-industries/rmcp-actix-web/commit/d80ad78a794328f767f7c1843fa2f4eeab315404))
+* **deps:** update registry.gitlab.com/lx-industries/rmcp-actix-web/images/rust:1.93.1-x86_64-unknown-linux-gnu docker digest to 51544c2 ([51aafa8](https://gitlab.com/lx-industries/rmcp-actix-web/commit/51aafa8083145003cbe29a65938e01a8006c6359))
+* **deps:** update rust crate rmcp to v1.1.1 ([6eb406f](https://gitlab.com/lx-industries/rmcp-actix-web/commit/6eb406f53ea423ce524013670f8ff6b2559966db))
+* **deps:** update rust docker tag to v1.94.0 ([04bcccb](https://gitlab.com/lx-industries/rmcp-actix-web/commit/04bcccbccc7fa0186c215d08798711c61020b74f))
+
 ## [0.12.1](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.12.0...v0.12.1) (2026-03-05)
 
 
