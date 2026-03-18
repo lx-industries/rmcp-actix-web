@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM rust:1.94.0@sha256:7e322aa1b876cbb977e0df46812af6c4e8be2efbfb2ce3712c28a93ba2968726
+FROM rust:1.94.0@sha256:72724f1a416c449b405a2b7ed6bac56058163e6dfb1b5ccb40839882141dd237
 
 # -- Environment (set early so tool installers use the right paths) -----------
 ENV HOME=/tmp/home
