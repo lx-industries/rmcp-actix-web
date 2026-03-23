@@ -1799,7 +1799,7 @@ dependencies = [
 
 [[package]]
 name = "rmcp-actix-web"
-version = "0.12.3"
+version = "0.12.4"
 dependencies = [
  "actix-web",
  "anyhow",
