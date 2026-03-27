@@ -36,7 +36,7 @@
 # Unified Rust job template - consolidated configuration for all Rust jobs
 .rust-template:
   extends: .sccache-rust
-  image: registry.gitlab.com/lx-industries/rmcp-actix-web/images/rust:1.94.0-x86_64-unknown-linux-gnu@sha256:19341c888d243a64e1da17ea5e24bb7fdbc1eb442347d0ca37e7e63ab1be5a6a
+  image: registry.gitlab.com/lx-industries/rmcp-actix-web/images/rust:1.94.1-x86_64-unknown-linux-gnu@sha256:f219dff11611687249b3146cdd6ca5901566ba3b39aa223e585756cfdf34d74d
   variables:
     # Assume the PWD is CI_PROJECT_DIR, this way we don't have to deal with
     # Windows (`\`) vs Linux (`/`) path separators.
