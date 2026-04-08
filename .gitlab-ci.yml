@@ -66,9 +66,9 @@ commitlint:
   variables:
     GIT_FETCH_EXTRA_FLAGS: '+refs/heads/main:refs/remotes/origin/main'
     # renovate: datasource=npm depName=@commitlint/cli versioning=npm
-    COMMITLINT_CLI_VERSION: "17.6.1"
+    COMMITLINT_CLI_VERSION: "17.8.1"
     # renovate: datasource=npm depName=@commitlint/config-conventional versioning=npm
-    COMMITLINT_CONFIG_VERSION: "17.6.1"
+    COMMITLINT_CONFIG_VERSION: "17.8.1"
   before_script:
     - npm install -g @commitlint/cli@${COMMITLINT_CLI_VERSION} @commitlint/config-conventional@${COMMITLINT_CONFIG_VERSION}
   script:
