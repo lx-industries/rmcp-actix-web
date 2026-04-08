@@ -15,7 +15,7 @@
     # renovate: datasource=npm depName=conventional-changelog-conventionalcommits versioning=npm
     CONVENTIONAL_CHANGELOG_CONVENTIONALCOMMITS_VERSION: "7.0.2"
     # renovate: datasource=github-releases depName=semantic-release-cargo/semantic-release-cargo extractVersionTemplate="^v(?<version>.*)$"
-    SEMANTIC_RELEASE_CARGO_VERSION: "2.4.44"
+    SEMANTIC_RELEASE_CARGO_VERSION: "2.4.84"
   before_script:
     # Install Node.js in Rust image
     - apt-get update -qq && apt-get install -y -qq curl
