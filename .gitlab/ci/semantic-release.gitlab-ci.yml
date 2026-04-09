@@ -13,7 +13,7 @@
     # renovate: datasource=npm depName=@semantic-release/exec versioning=npm
     SEMANTIC_RELEASE_EXEC_VERSION: "6.0.3"
     # renovate: datasource=npm depName=conventional-changelog-conventionalcommits versioning=npm
-    CONVENTIONAL_CHANGELOG_CONVENTIONALCOMMITS_VERSION: "7.0.2"
+    CONVENTIONAL_CHANGELOG_CONVENTIONALCOMMITS_VERSION: "9.3.1"
     # renovate: datasource=github-releases depName=semantic-release-cargo/semantic-release-cargo extractVersionTemplate="^v(?<version>.*)$"
     SEMANTIC_RELEASE_CARGO_VERSION: "2.4.84"
   before_script:
