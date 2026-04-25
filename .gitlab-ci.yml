@@ -66,7 +66,7 @@ commitlint:
   variables:
     GIT_FETCH_EXTRA_FLAGS: '+refs/heads/main:refs/remotes/origin/main'
     # renovate: datasource=npm depName=@commitlint/cli versioning=npm
-    COMMITLINT_CLI_VERSION: "20.5.0"
+    COMMITLINT_CLI_VERSION: "20.5.2"
     # renovate: datasource=npm depName=@commitlint/config-conventional versioning=npm
     COMMITLINT_CONFIG_VERSION: "20.5.0"
   before_script:
