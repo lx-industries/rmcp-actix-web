@@ -101,6 +101,8 @@ use super::AuthorizationHeader;
 const HEADER_X_ACCEL_BUFFERING: &str = "X-Accel-Buffering";
 const EVENT_STREAM_MIME_TYPE: &str = "text/event-stream";
 const JSON_MIME_TYPE: &str = "application/json";
+const MISSING_SESSION_ID_BODY: &str = "Bad Request: Mcp-Session-Id header is required";
+const SESSION_NOT_FOUND_BODY: &str = "Session not found";
 
 /// Configuration for the streamable HTTP server transport.
 ///
@@ -527,10 +529,11 @@ where
             .headers()
             .get(HEADER_SESSION_ID)
             .and_then(|v| v.to_str().ok())
+            .filter(|s| !s.is_empty())
             .map(|s| s.to_owned().into());
 
         let Some(session_id) = session_id else {
-            return Ok(HttpResponse::Unauthorized().body("Unauthorized: Session ID is required"));
+            return Ok(HttpResponse::BadRequest().body(MISSING_SESSION_ID_BODY));
         };
 
         tracing::debug!(%session_id, "GET request for SSE stream");
@@ -543,7 +546,8 @@ where
             .map_err(|e| InternalError::new(e, StatusCode::INTERNAL_SERVER_ERROR))?;
 
         if !has_session {
-            return Ok(HttpResponse::NotFound().body("Session not found"));
+            tracing::warn!(%session_id, "Session not found");
+            return Ok(HttpResponse::NotFound().body(SESSION_NOT_FOUND_BODY));
         }
 
         // Check if last event id is provided
@@ -632,7 +636,8 @@ where
             let session_id = req
                 .headers()
                 .get(HEADER_SESSION_ID)
-                .and_then(|v| v.to_str().ok());
+                .and_then(|v| v.to_str().ok())
+                .filter(|s| !s.is_empty());
 
             if let Some(session_id) = session_id {
                 let session_id = session_id.to_owned().into();
@@ -646,7 +651,7 @@ where
 
                 if !has_session {
                     tracing::warn!(%session_id, "Session not found");
-                    return Ok(HttpResponse::NotFound().body("Session not found"));
+                    return Ok(HttpResponse::NotFound().body(SESSION_NOT_FOUND_BODY));
                 }
 
                 // Note: In actix-web we can't inject request parts like in tower,
@@ -770,7 +775,21 @@ where
                     }
                 }
             } else {
-                // No session id in stateful mode - create new session
+                // No session id in stateful mode. A non-initialize request without
+                // a session id is a 400 Bad Request per MCP 2025-03-26 Streamable
+                // HTTP Session Management. The check happens before create_session
+                // so a rejected request never leaves a stranded session behind.
+                let is_initialize_request = matches!(
+                    &message,
+                    ClientJsonRpcMessage::Request(request_msg)
+                        if matches!(request_msg.request, ClientRequest::InitializeRequest(_))
+                );
+
+                if !is_initialize_request {
+                    tracing::warn!("Mcp-Session-Id missing for non-initialize request");
+                    return Ok(HttpResponse::BadRequest().body(MISSING_SESSION_ID_BODY));
+                }
+
                 tracing::debug!("POST request without session, creating new session");
 
                 let (session_id, transport) = service
@@ -782,12 +801,6 @@ where
                 tracing::info!(%session_id, "Created new session");
 
                 if let ClientJsonRpcMessage::Request(request_msg) = &mut message {
-                    if !matches!(request_msg.request, ClientRequest::InitializeRequest(_)) {
-                        return Ok(
-                            HttpResponse::UnprocessableEntity().body("Expected initialize request")
-                        );
-                    }
-
                     // Call on_request hook to propagate extensions from HttpRequest
                     if let Some(ref hook) = service.on_request {
                         hook(&req, request_msg.request.extensions_mut());
@@ -851,10 +864,6 @@ where
                              Note: Token passthrough violates MCP specifications. See SECURITY.md for details."
                         );
                     }
-                } else {
-                    return Ok(
-                        HttpResponse::UnprocessableEntity().body("Expected initialize request")
-                    );
                 }
 
                 let service_instance = service
@@ -920,8 +929,21 @@ where
                     .streaming(sse_stream))
             }
         } else {
-            // Stateless mode
+            // Stateless mode: MCP 2025-03-26 Streamable HTTP Session Management
+            // scopes its session-id rules to "servers that require a session ID",
+            // which a stateless deployment does not. Any Mcp-Session-Id value is
+            // accepted, logged for observability, and otherwise ignored. The
+            // Python and TypeScript reference SDKs make the same interpretation.
             tracing::debug!("POST request in stateless mode");
+            if req
+                .headers()
+                .get(HEADER_SESSION_ID)
+                .and_then(|v| v.to_str().ok())
+                .filter(|s| !s.is_empty())
+                .is_some()
+            {
+                tracing::debug!("Mcp-Session-Id header ignored in stateless mode");
+            }
 
             match message {
                 #[allow(unused_mut)]
@@ -1035,13 +1057,25 @@ where
             .headers()
             .get(HEADER_SESSION_ID)
             .and_then(|v| v.to_str().ok())
+            .filter(|s| !s.is_empty())
             .map(|s| s.to_owned().into());
 
         let Some(session_id) = session_id else {
-            return Ok(HttpResponse::Unauthorized().body("Unauthorized: Session ID is required"));
+            return Ok(HttpResponse::BadRequest().body(MISSING_SESSION_ID_BODY));
         };
 
         tracing::debug!(%session_id, "DELETE request to close session");
+
+        let has_session = service
+            .session_manager
+            .has_session(&session_id)
+            .await
+            .map_err(|e| InternalError::new(e, StatusCode::INTERNAL_SERVER_ERROR))?;
+
+        if !has_session {
+            tracing::warn!(%session_id, "Session not found");
+            return Ok(HttpResponse::NotFound().body(SESSION_NOT_FOUND_BODY));
+        }
 
         // Close session
         service
