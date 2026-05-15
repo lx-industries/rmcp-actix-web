@@ -1,3 +1,15 @@
+## [0.12.8](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.12.7...v0.12.8) (2026-05-15)
+
+
+### Bug Fixes
+
+* **streamable-http:** return 404 for unknown Mcp-Session-Id per MCP spec ([3a7c6f3](https://gitlab.com/lx-industries/rmcp-actix-web/commit/3a7c6f3eb3710b3de9aa3601bf952a59c8e2943f))
+
+
+### Miscellaneous Chores
+
+* **deps:** update commitlint monorepo to v21 ([c4e4f9b](https://gitlab.com/lx-industries/rmcp-actix-web/commit/c4e4f9b953732a6be0d38b4a1473536ddb110460))
+
 ## [0.12.7](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.12.6...v0.12.7) (2026-05-15)
 
 
