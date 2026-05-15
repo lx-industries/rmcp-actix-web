@@ -543,7 +543,7 @@ where
             .map_err(|e| InternalError::new(e, StatusCode::INTERNAL_SERVER_ERROR))?;
 
         if !has_session {
-            return Ok(HttpResponse::Unauthorized().body("Unauthorized: Session not found"));
+            return Ok(HttpResponse::NotFound().body("Session not found"));
         }
 
         // Check if last event id is provided
@@ -646,7 +646,7 @@ where
 
                 if !has_session {
                     tracing::warn!(%session_id, "Session not found");
-                    return Ok(HttpResponse::Unauthorized().body("Unauthorized: Session not found"));
+                    return Ok(HttpResponse::NotFound().body("Session not found"));
                 }
 
                 // Note: In actix-web we can't inject request parts like in tower,
