@@ -1,3 +1,47 @@
+## [0.12.7](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.12.6...v0.12.7) (2026-05-15)
+
+
+### Bug Fixes
+
+* **ci:** pin conventional-changelog-conventionalcommits to v7 ([a433d45](https://gitlab.com/lx-industries/rmcp-actix-web/commit/a433d4553bde9b879cd3b6654f6478cd4cb1b943)), closes [#46](https://gitlab.com/lx-industries/rmcp-actix-web/issues/46)
+* emit empty data for SEP-1699 priming events instead of `data: null` ([c13f3e6](https://gitlab.com/lx-industries/rmcp-actix-web/commit/c13f3e61a8e4d3bdaaf4aae8f32de82662aefb71))
+
+
+### Miscellaneous Chores
+
+* **deps:** update commitlint monorepo to v17.8.1 ([8f00564](https://gitlab.com/lx-industries/rmcp-actix-web/commit/8f00564cc717c4266e6610bdf0efaac6fef021af))
+* **deps:** update commitlint monorepo to v20 ([39f6ce4](https://gitlab.com/lx-industries/rmcp-actix-web/commit/39f6ce4ef449c412c2f1dbcaceb903f8ee9d5ce4))
+* **deps:** update commitlint monorepo to v20.5.3 ([7e9e2c4](https://gitlab.com/lx-industries/rmcp-actix-web/commit/7e9e2c4d942238ef8f3bac2c3f725e9338b965d5))
+* **deps:** update dependency @commitlint/cli to v20.5.2 ([bf13981](https://gitlab.com/lx-industries/rmcp-actix-web/commit/bf139814e3a2ff19159e9186fcbee22407c89f50))
+* **deps:** update dependency conventional-changelog-conventionalcommits to v9 ([da3298b](https://gitlab.com/lx-industries/rmcp-actix-web/commit/da3298bcd97774eeddef0ee0805a020fd790f04e))
+* **deps:** update dependency semantic-release to v21.1.2 ([56640e1](https://gitlab.com/lx-industries/rmcp-actix-web/commit/56640e1b16974dff73fab52c2291aeb01ac70bb0))
+* **deps:** update dependency semantic-release-cargo/semantic-release-cargo to v2.4.84 ([723da9d](https://gitlab.com/lx-industries/rmcp-actix-web/commit/723da9d43409c2eb38c3db73a15f59ccdf91e8b0))
+* **deps:** update docker docker tag to v29.4.0 ([a7cb657](https://gitlab.com/lx-industries/rmcp-actix-web/commit/a7cb657f4e1a863b4183499f0bcec75051940cd1))
+* **deps:** update docker docker tag to v29.4.1 ([ea48c16](https://gitlab.com/lx-industries/rmcp-actix-web/commit/ea48c16b548f651fab57e57145553b33d84c04e9))
+* **deps:** update docker docker tag to v29.4.3 ([f1e14e5](https://gitlab.com/lx-industries/rmcp-actix-web/commit/f1e14e5e5238eed03e64a50f4e989f627b53dae0))
+* **deps:** update docker:29.4.0-dind docker digest to a6dd532 ([bcd1f7c](https://gitlab.com/lx-industries/rmcp-actix-web/commit/bcd1f7c4f60bc02af9252e303da7ef0a7652d14a))
+* **deps:** update docker:29.4.0-dind docker digest to edaa00c ([ab1ddc6](https://gitlab.com/lx-industries/rmcp-actix-web/commit/ab1ddc63a4f0cefdb3cea00a3b20aa52b3ff1de5))
+* **deps:** update node.js to 2ef5213 ([4390bb5](https://gitlab.com/lx-industries/rmcp-actix-web/commit/4390bb51ca2af208554c4f264e848b8f56ca4b04))
+* **deps:** update node.js to 80fc934 ([25c7ec5](https://gitlab.com/lx-industries/rmcp-actix-web/commit/25c7ec5ad1fd4e07e2ea13501acd4a25003321a2))
+* **deps:** update node.js to df0c595 ([4ec8f62](https://gitlab.com/lx-industries/rmcp-actix-web/commit/4ec8f62e065325071d4cff6dab568e6a10640611))
+* **deps:** update node.js to v20.20.2 ([9bf2e77](https://gitlab.com/lx-industries/rmcp-actix-web/commit/9bf2e77b10c0acc0500d473e329f01816b245ee7))
+* **deps:** update node.js to v22.22.2 ([eb2a581](https://gitlab.com/lx-industries/rmcp-actix-web/commit/eb2a5815368c3bf7f3d79bc7dcf56489ea761074))
+* **deps:** update node.js to v22.22.3 ([4203c52](https://gitlab.com/lx-industries/rmcp-actix-web/commit/4203c52b0c7c60c57b0162f5ff1cd1c3b8f9411f))
+* **deps:** update registry.gitlab.com/lx-industries/rmcp-actix-web/images/rust docker tag to v1.95.0 ([57a6a08](https://gitlab.com/lx-industries/rmcp-actix-web/commit/57a6a082116a63cc709e8dce8f17dacde5a34baa))
+* **deps:** update registry.gitlab.com/lx-industries/rmcp-actix-web/images/rust:1.94.1-x86_64-unknown-linux-gnu docker digest to 119f3a6 ([e68e45f](https://gitlab.com/lx-industries/rmcp-actix-web/commit/e68e45f97043626298c28866f68189adbcc3b1c5))
+* **deps:** update registry.gitlab.com/lx-industries/rmcp-actix-web/images/rust:1.94.1-x86_64-unknown-linux-gnu docker digest to 3fd3441 ([9b3b1ca](https://gitlab.com/lx-industries/rmcp-actix-web/commit/9b3b1ca89d38c098f4cc7fe091ae7cd5d61e465c))
+* **deps:** update registry.gitlab.com/lx-industries/rmcp-actix-web/images/rust:1.94.1-x86_64-unknown-linux-gnu docker digest to dad796d ([4cf3b4b](https://gitlab.com/lx-industries/rmcp-actix-web/commit/4cf3b4beb6e4b7d27efb9ef6601403f6699550e5))
+* **deps:** update rust crate reqwest to v0.13.3 ([e5e8351](https://gitlab.com/lx-industries/rmcp-actix-web/commit/e5e835169a6b11f9e0b19f6b8b6003c4ac0447a0))
+* **deps:** update rust crate tokio to v1.51.1 ([a82c8b8](https://gitlab.com/lx-industries/rmcp-actix-web/commit/a82c8b8730b051f7a6809fee125c3836986d4616))
+* **deps:** update rust crate tokio to v1.52.0 ([2f6afb8](https://gitlab.com/lx-industries/rmcp-actix-web/commit/2f6afb8ea1eb7e2bdd62abf45c4cbae6f80e7173))
+* **deps:** update rust crate tokio to v1.52.1 ([909d0af](https://gitlab.com/lx-industries/rmcp-actix-web/commit/909d0afb8a7cb9fd77ef28445b6f444662956a30))
+* **deps:** update rust crate tokio to v1.52.2 ([2b0e5d1](https://gitlab.com/lx-industries/rmcp-actix-web/commit/2b0e5d1ad08e1bde4c4d931426fc214b19b1d40a))
+* **deps:** update rust crate tokio to v1.52.3 ([3871c34](https://gitlab.com/lx-industries/rmcp-actix-web/commit/3871c3483b6452b5c3f0cf8ad110149ac1f46520))
+* **deps:** update rust docker tag to v1.95.0 ([08468af](https://gitlab.com/lx-industries/rmcp-actix-web/commit/08468af970398bd04860e17f44b77a3ed7763ae8))
+* **deps:** update rust:1.94.1 docker digest to 652612f ([808fe91](https://gitlab.com/lx-industries/rmcp-actix-web/commit/808fe91e20c706f6ef2870470f737bab8652aa6a))
+* **deps:** update rust:1.94.1 docker digest to a449cfc ([ab32196](https://gitlab.com/lx-industries/rmcp-actix-web/commit/ab32196385dd91599125b2e5db3e3bff05f5a22f))
+* **deps:** update rust:1.94.1 docker digest to dbc91e2 ([381eaba](https://gitlab.com/lx-industries/rmcp-actix-web/commit/381eaba11031698a692c7e2ef3cf2d6cac802592))
+
 ## [0.12.6](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.12.5...v0.12.6) (2026-04-06)
 
 
