@@ -286,6 +286,29 @@ impl<S, M> AppData<S, M> {
 //
 // These functions provide reusable SSE keep-alive functionality to avoid code duplication.
 
+/// Serialize a `ServerSseMessage` as a single SSE event.
+///
+/// Priming events ([SEP-1699](https://github.com/modelcontextprotocol/modelcontextprotocol/issues/1699))
+/// carry no JSON-RPC payload (`message == None`) and MUST be emitted with an empty `data` field
+/// (`data:\n\n`), not the JSON literal `null`.
+fn format_sse_event(
+    event_id: Option<&str>,
+    message: Option<&rmcp::model::ServerJsonRpcMessage>,
+) -> Bytes {
+    let mut output = String::new();
+    if let Some(id) = event_id {
+        output.push_str(&format!("id: {id}\n"));
+    }
+    match message {
+        Some(message) => {
+            let data = serde_json::to_string(message).unwrap_or_else(|_| "{}".to_string());
+            output.push_str(&format!("data: {data}\n\n"));
+        }
+        None => output.push_str("data:\n\n"),
+    }
+    Bytes::from(output)
+}
+
 /// Wraps any SSE-formatted stream with keep-alive ping support.
 ///
 /// Adds periodic `:ping\n\n` messages during silent periods to prevent connection timeouts.
@@ -554,20 +577,10 @@ where
 
         // Convert to SSE format and add keep-alive
         let formatted_stream = sse_stream.map(|msg| {
-            let mut output = String::new();
-            if let Some(id) = msg.event_id {
-                output.push_str(&format!("id: {id}\n"));
-            }
-            // Priming events (SEP-1699) have no message payload; emit empty data.
-            match &msg.message {
-                Some(message) => {
-                    let data = serde_json::to_string(message.as_ref())
-                        .unwrap_or_else(|_| "{}".to_string());
-                    output.push_str(&format!("data: {data}\n\n"));
-                }
-                None => output.push_str("data:\n\n"),
-            }
-            Ok::<_, actix_web::Error>(Bytes::from(output))
+            Ok::<_, actix_web::Error>(format_sse_event(
+                msg.event_id.as_deref(),
+                msg.message.as_deref(),
+            ))
         });
         let sse_stream = wrap_with_sse_keepalive(formatted_stream, service.sse_keep_alive);
 
@@ -727,20 +740,10 @@ where
                         // Keep-alive prevents timeouts during long tool execution with no progress updates
                         // Stream closes automatically after final response (keep-alive stops when stream ends)
                         let formatted_stream = stream.map(|msg| {
-                            let mut output = String::new();
-                            if let Some(id) = msg.event_id {
-                                output.push_str(&format!("id: {id}\n"));
-                            }
-                            // Priming events (SEP-1699) have no message payload; emit empty data.
-                            match &msg.message {
-                                Some(message) => {
-                                    let data = serde_json::to_string(message.as_ref())
-                                        .unwrap_or_else(|_| "{}".to_string());
-                                    output.push_str(&format!("data: {data}\n\n"));
-                                }
-                                None => output.push_str("data:\n\n"),
-                            }
-                            Ok::<_, actix_web::Error>(Bytes::from(output))
+                            Ok::<_, actix_web::Error>(format_sse_event(
+                                msg.event_id.as_deref(),
+                                msg.message.as_deref(),
+                            ))
                         });
                         let sse_stream =
                             wrap_with_sse_keepalive(formatted_stream, service.sse_keep_alive);
@@ -1050,5 +1053,65 @@ where
         tracing::info!(%session_id, "Session closed");
 
         Ok(HttpResponse::NoContent().finish())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rmcp::model::{
+        EmptyResult, JsonRpcResponse, JsonRpcVersion2_0, RequestId, ServerJsonRpcMessage,
+        ServerResult,
+    };
+
+    use super::format_sse_event;
+
+    fn dummy_message() -> ServerJsonRpcMessage {
+        ServerJsonRpcMessage::Response(JsonRpcResponse {
+            jsonrpc: JsonRpcVersion2_0,
+            id: RequestId::Number(1),
+            result: ServerResult::EmptyResult(EmptyResult {}),
+        })
+    }
+
+    /// Regression test for the SEP-1699 priming-event serialization bug.
+    ///
+    /// Prior to the fix, `serde_json::to_string(&msg.message)` was applied to
+    /// `Option<Arc<ServerJsonRpcMessage>>` directly, producing the literal
+    /// `null` on the wire when the message was `None`. SEP-1699 mandates an
+    /// empty `data` field instead.
+    #[test]
+    fn priming_event_emits_empty_data_not_null() {
+        let bytes = format_sse_event(Some("0/0"), None);
+        let wire = std::str::from_utf8(&bytes).expect("utf-8");
+
+        assert_eq!(wire, "id: 0/0\ndata:\n\n");
+        assert!(
+            !wire.contains("data: null"),
+            "priming event must not serialize the message as JSON null, got: {wire:?}"
+        );
+    }
+
+    #[test]
+    fn message_event_serializes_payload_as_json() {
+        let message = dummy_message();
+        let bytes = format_sse_event(Some("1/0"), Some(&message));
+        let wire = std::str::from_utf8(&bytes).expect("utf-8");
+
+        assert_eq!(
+            wire,
+            "id: 1/0\ndata: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}\n\n"
+        );
+    }
+
+    #[test]
+    fn message_event_without_event_id_omits_id_line() {
+        let message = dummy_message();
+        let bytes = format_sse_event(None, Some(&message));
+        let wire = std::str::from_utf8(&bytes).expect("utf-8");
+
+        assert_eq!(
+            wire,
+            "data: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}\n\n"
+        );
     }
 }
