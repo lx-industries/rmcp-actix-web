@@ -20,6 +20,19 @@
       "matchPackageNames": ["rust"],
       "matchDatasources": ["docker"],
       "schedule": ["on the first day of the month"]
+    },
+    {
+      "matchPackageNames": [
+        "semantic-release",
+        "@semantic-release/changelog",
+        "@semantic-release/git",
+        "@semantic-release/gitlab",
+        "@semantic-release/exec",
+        "conventional-changelog-conventionalcommits"
+      ],
+      "groupName": "semantic-release",
+      "separateMajorMinor": false,
+      "separateMinorPatch": false
     }
   ],
   "customManagers": [
