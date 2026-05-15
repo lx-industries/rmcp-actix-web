@@ -1,3 +1,10 @@
+## [0.12.9](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.12.8...v0.12.9) (2026-05-15)
+
+
+### Bug Fixes
+
+* **streamable-http:** audit remaining Mcp-Session-Id status codes ([ffcefba](https://gitlab.com/lx-industries/rmcp-actix-web/commit/ffcefbabf08036ad5a9c4aca88ea4bdc1d67ea98)), closes [#47](https://gitlab.com/lx-industries/rmcp-actix-web/issues/47)
+
 ## [0.12.8](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.12.7...v0.12.8) (2026-05-15)
 
 
