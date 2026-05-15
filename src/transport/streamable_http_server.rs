@@ -554,12 +554,19 @@ where
 
         // Convert to SSE format and add keep-alive
         let formatted_stream = sse_stream.map(|msg| {
-            let data = serde_json::to_string(&msg.message).unwrap_or_else(|_| "{}".to_string());
             let mut output = String::new();
             if let Some(id) = msg.event_id {
                 output.push_str(&format!("id: {id}\n"));
             }
-            output.push_str(&format!("data: {data}\n\n"));
+            // Priming events (SEP-1699) have no message payload; emit empty data.
+            match &msg.message {
+                Some(message) => {
+                    let data = serde_json::to_string(message.as_ref())
+                        .unwrap_or_else(|_| "{}".to_string());
+                    output.push_str(&format!("data: {data}\n\n"));
+                }
+                None => output.push_str("data:\n\n"),
+            }
             Ok::<_, actix_web::Error>(Bytes::from(output))
         });
         let sse_stream = wrap_with_sse_keepalive(formatted_stream, service.sse_keep_alive);
@@ -720,13 +727,19 @@ where
                         // Keep-alive prevents timeouts during long tool execution with no progress updates
                         // Stream closes automatically after final response (keep-alive stops when stream ends)
                         let formatted_stream = stream.map(|msg| {
-                            let data = serde_json::to_string(&msg.message)
-                                .unwrap_or_else(|_| "{}".to_string());
                             let mut output = String::new();
                             if let Some(id) = msg.event_id {
                                 output.push_str(&format!("id: {id}\n"));
                             }
-                            output.push_str(&format!("data: {data}\n\n"));
+                            // Priming events (SEP-1699) have no message payload; emit empty data.
+                            match &msg.message {
+                                Some(message) => {
+                                    let data = serde_json::to_string(message.as_ref())
+                                        .unwrap_or_else(|_| "{}".to_string());
+                                    output.push_str(&format!("data: {data}\n\n"));
+                                }
+                                None => output.push_str("data:\n\n"),
+                            }
                             Ok::<_, actix_web::Error>(Bytes::from(output))
                         });
                         let sse_stream =
