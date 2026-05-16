@@ -3,17 +3,17 @@
   image: rust:1.95.0@sha256:a9cfb755b33f5bb872610cbdb25da61f527416b28fc9c052bbce4bef93e7799a
   variables:
     # renovate: datasource=npm depName=semantic-release versioning=npm
-    SEMANTIC_RELEASE_VERSION: "21.1.2"
+    SEMANTIC_RELEASE_VERSION: "25.0.3"
     # renovate: datasource=npm depName=@semantic-release/changelog versioning=npm
     SEMANTIC_RELEASE_CHANGELOG_VERSION: "6.0.3"
     # renovate: datasource=npm depName=@semantic-release/git versioning=npm
     SEMANTIC_RELEASE_GIT_VERSION: "10.0.1"
     # renovate: datasource=npm depName=@semantic-release/gitlab versioning=npm
-    SEMANTIC_RELEASE_GITLAB_VERSION: "12.1.1"
+    SEMANTIC_RELEASE_GITLAB_VERSION: "13.3.2"
     # renovate: datasource=npm depName=@semantic-release/exec versioning=npm
-    SEMANTIC_RELEASE_EXEC_VERSION: "6.0.3"
+    SEMANTIC_RELEASE_EXEC_VERSION: "7.1.0"
     # renovate: datasource=npm depName=conventional-changelog-conventionalcommits versioning=npm
-    CONVENTIONAL_CHANGELOG_CONVENTIONALCOMMITS_VERSION: "7.0.2"
+    CONVENTIONAL_CHANGELOG_CONVENTIONALCOMMITS_VERSION: "9.3.1"
     # renovate: datasource=github-releases depName=semantic-release-cargo/semantic-release-cargo extractVersionTemplate="^v(?<version>.*)$"
     SEMANTIC_RELEASE_CARGO_VERSION: "2.4.84"
   before_script:

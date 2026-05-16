@@ -25,7 +25,7 @@ variables:
       - "rust-x86_64-unknown-linux-gnu"
     value: "false"
   # renovate: datasource=node-version depName=node versioning=node
-  NODE_VERSION: "20.20.2"
+  NODE_VERSION: "24.15.0"
 
 # Workflow rules for automatic pipeline cancellation
 workflow:

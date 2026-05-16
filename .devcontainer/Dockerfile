@@ -18,7 +18,7 @@ RUN rustup component add clippy rustfmt
 
 # -- Node.js (needed for JS interop tests) ------------------------------------
 # renovate: datasource=node-version depName=node
-ARG NODE_VERSION="22.22.3"
+ARG NODE_VERSION="24.15.0"
 RUN arch="$(dpkg --print-architecture)" \
     && case "$arch" in amd64) node_arch=x64;; arm64) node_arch=arm64;; *) echo "Unsupported arch: $arch" >&2; exit 1;; esac \
     && curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${node_arch}.tar.xz" \
