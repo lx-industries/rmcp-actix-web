@@ -1,3 +1,12 @@
+## [0.12.10](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.12.9...v0.12.10) (2026-05-18)
+
+### Miscellaneous Chores
+
+* **deps:** update docker docker tag to v29.5.0 ([f3df9f8](https://gitlab.com/lx-industries/rmcp-actix-web/commit/f3df9f85a7d9db9cffa67dc4a4a6ea0e71c35545))
+* **deps:** update docker:29.5.0-dind docker digest to 8e3fae9 ([a601261](https://gitlab.com/lx-industries/rmcp-actix-web/commit/a601261d3f058766d5781a7543e1a4bb31e9327c))
+* **deps:** update node.js to v24 and semantic-release to v25 ([9f59439](https://gitlab.com/lx-industries/rmcp-actix-web/commit/9f5943904d6b923c6e965282b130c74793605e96))
+* **deps:** update node.js to v24.15.0 ([42aa039](https://gitlab.com/lx-industries/rmcp-actix-web/commit/42aa0394dbe4da2abf4edb63ca1cb763186f060a))
+
 ## [0.12.9](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.12.8...v0.12.9) (2026-05-15)
 
 
