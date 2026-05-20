@@ -47,6 +47,10 @@ struct ProxyService {
     /// Stores the Authorization header for the session
     authorization: Arc<Mutex<Option<String>>>,
     /// Router for tool dispatch
+    #[expect(
+        dead_code,
+        reason = "Initialized by Self::new(); the #[tool_handler] macro reads the router via Self::tool_router(), not this field."
+    )]
     tool_router: ToolRouter<ProxyService>,
 }
 

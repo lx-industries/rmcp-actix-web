@@ -44,6 +44,10 @@ impl DataService for MemoryDataService {
 pub struct GenericService<DS: DataService> {
     #[allow(dead_code)]
     data_service: Arc<DS>,
+    #[expect(
+        dead_code,
+        reason = "Initialized by Self::new(); the #[tool_handler] macro reads the router via Self::tool_router(), not this field."
+    )]
     tool_router: ToolRouter<Self>,
 }
 

@@ -20,30 +20,36 @@ async fn extract_auth_from_sse_response(response: Response) -> Option<String> {
     let mut body = Vec::new();
     let mut stream = response.bytes_stream();
 
-    let _ = tokio::time::timeout(Duration::from_secs(2), async {
-        while let Some(Ok(bytes)) = stream.next().await {
-            body.extend_from_slice(&bytes);
-            if body.ends_with(b"\n\n") || body.len() > 4096 {
-                break;
+    // Request-wise SSE streams begin with a priming event (SEP-1699) whose
+    // `data:` line is empty, so the first `\n\n` terminator is not the real
+    // response. Keep reading until a `data:` line parses as the expected
+    // payload, or until the byte cap / timeout fires.
+    tokio::time::timeout(Duration::from_secs(2), async {
+        loop {
+            let body_str = String::from_utf8_lossy(&body);
+            for line in body_str.lines() {
+                if let Some(json_str) = line.strip_prefix("data: ")
+                    && let Ok(response_json) = serde_json::from_str::<Value>(json_str)
+                    && let Some(text_value) = response_json.pointer("/result/content/0/text")
+                    && let Some(text_str) = text_value.as_str()
+                    && let Ok(auth_response) = serde_json::from_str::<Value>(text_str)
+                    && let Some(auth) = auth_response.get("authorization")
+                {
+                    return auth.as_str().map(String::from);
+                }
+            }
+            if body.len() > 4096 {
+                return None;
+            }
+            match stream.next().await {
+                Some(Ok(bytes)) => body.extend_from_slice(&bytes),
+                _ => return None,
             }
         }
     })
-    .await;
-
-    // Parse SSE and extract authorization
-    let body_str = String::from_utf8_lossy(&body);
-    for line in body_str.lines() {
-        if let Some(json_str) = line.strip_prefix("data: ")
-            && let Ok(response_json) = serde_json::from_str::<Value>(json_str)
-            && let Some(text_value) = response_json.pointer("/result/content/0/text")
-            && let Some(text_str) = text_value.as_str()
-            && let Ok(auth_response) = serde_json::from_str::<Value>(text_str)
-            && let Some(auth) = auth_response.get("authorization")
-        {
-            return auth.as_str().map(String::from);
-        }
-    }
-    None
+    .await
+    .ok()
+    .flatten()
 }
 
 #[cfg(feature = "authorization-token-passthrough")]

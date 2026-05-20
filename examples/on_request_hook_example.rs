@@ -127,6 +127,10 @@ where
 /// MCP service that uses propagated user claims
 #[derive(Clone)]
 struct UserAwareService {
+    #[expect(
+        dead_code,
+        reason = "Initialized by Self::new(); the #[tool_handler] macro reads the router via Self::tool_router(), not this field."
+    )]
     tool_router: ToolRouter<UserAwareService>,
 }
 
