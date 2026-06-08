@@ -1,3 +1,10 @@
+## [0.12.13](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.12.12...v0.12.13) (2026-06-08)
+
+### Miscellaneous Chores
+
+* **deps:** update docker docker tag to v29.5.3 ([f30efed](https://gitlab.com/lx-industries/rmcp-actix-web/commit/f30efede81ad98155147884a06d8619f808d3eda))
+* **deps:** update rust crate chrono to v0.4.45 ([cdf4894](https://gitlab.com/lx-industries/rmcp-actix-web/commit/cdf489499626f7653db572edcf898363dde3caac))
+
 ## [0.12.12](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.12.11...v0.12.12) (2026-06-01)
 
 ### Miscellaneous Chores
