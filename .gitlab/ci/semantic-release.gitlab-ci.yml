@@ -3,7 +3,7 @@
   image: rust:1.96.0@sha256:fb328f0f58becb23ba1719940a2c94ece8b0b48afa837d05b79ef64bc1e18f6e
   variables:
     # renovate: datasource=npm depName=semantic-release versioning=npm
-    SEMANTIC_RELEASE_VERSION: "25.0.3"
+    SEMANTIC_RELEASE_VERSION: "25.0.5"
     # renovate: datasource=npm depName=@semantic-release/changelog versioning=npm
     SEMANTIC_RELEASE_CHANGELOG_VERSION: "6.0.3"
     # renovate: datasource=npm depName=@semantic-release/git versioning=npm
