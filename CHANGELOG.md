@@ -1,3 +1,13 @@
+## [0.12.14](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.12.13...v0.12.14) (2026-06-15)
+
+### Miscellaneous Chores
+
+* **deps:** update docker:29.5.3-dind docker digest to ad68e89 ([6d119f9](https://gitlab.com/lx-industries/rmcp-actix-web/commit/6d119f94be8862440e926a1779693704538de065))
+* **deps:** update rust crate bon to v3.9.2 ([ea26ec6](https://gitlab.com/lx-industries/rmcp-actix-web/commit/ea26ec6603620eacea5e84c09d09051df34f5a36))
+* **deps:** update rust crate http to v1.4.2 ([1a6fedc](https://gitlab.com/lx-industries/rmcp-actix-web/commit/1a6fedcca594d856cac6933907b61821bb0ca74d))
+* **deps:** update rust crate insta to v1.48.0 ([4990a88](https://gitlab.com/lx-industries/rmcp-actix-web/commit/4990a887e9b35a826c476bb34c243e772958f7ee))
+* **deps:** update semantic-release to v25.0.5 ([b23339e](https://gitlab.com/lx-industries/rmcp-actix-web/commit/b23339e1489ecace385b0aa0c2f8463ae9eee535))
+
 ## [0.12.13](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.12.12...v0.12.13) (2026-06-08)
 
 ### Miscellaneous Chores
