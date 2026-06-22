@@ -1,3 +1,13 @@
+## [0.12.15](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.12.14...v0.12.15) (2026-06-22)
+
+### Miscellaneous Chores
+
+* **deps:** update docker docker tag to v29.6.0 ([c59b66f](https://gitlab.com/lx-industries/rmcp-actix-web/commit/c59b66f32da86f9852b7597d0f7aeb3e616d082f))
+* **deps:** update docker:29.5.3-dind docker digest to 7278248 ([16a6941](https://gitlab.com/lx-industries/rmcp-actix-web/commit/16a6941406ec115dc48632dfa52761f7b3eded26))
+* **deps:** update docker:29.6.0-dind docker digest to 7bb861a ([a80ddc0](https://gitlab.com/lx-industries/rmcp-actix-web/commit/a80ddc077692957a4e9f6eaf3a58bcf1336b92ff))
+* **deps:** update node.js to v24.17.0 ([58eb4d5](https://gitlab.com/lx-industries/rmcp-actix-web/commit/58eb4d5e5b4c4461dc0119bd0ea25aa200585887))
+* **deps:** update rust crate bon to v3.9.3 ([bcbb0ce](https://gitlab.com/lx-industries/rmcp-actix-web/commit/bcbb0cedbc0afffd628cc647e569fdbf7de9b161))
+
 ## [0.12.14](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.12.13...v0.12.14) (2026-06-15)
 
 ### Miscellaneous Chores
