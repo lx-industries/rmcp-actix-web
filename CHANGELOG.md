@@ -1,3 +1,13 @@
+## [0.12.16](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.12.15...v0.12.16) (2026-06-29)
+
+### Miscellaneous Chores
+
+* **deps:** update commitlint monorepo to v21.1.0 ([a3c1d08](https://gitlab.com/lx-industries/rmcp-actix-web/commit/a3c1d0825f877bb76c1980f934eaa40a1c677fd8))
+* **deps:** update docker docker tag to v29.6.1 ([82f26f9](https://gitlab.com/lx-industries/rmcp-actix-web/commit/82f26f97b890788429a489a27e851d43c69eddb7))
+* **deps:** update node.js to 733e1c0 ([21b4623](https://gitlab.com/lx-industries/rmcp-actix-web/commit/21b4623c7fcfed29f04de8c51db6e6320c72d2e8))
+* **deps:** update node.js to v24.18.0 ([0dae369](https://gitlab.com/lx-industries/rmcp-actix-web/commit/0dae369a4b88d94bc989edad91d7bd77a2d7bbec))
+* **deps:** update rust crate anyhow to v1.0.103 ([9ec0fc7](https://gitlab.com/lx-industries/rmcp-actix-web/commit/9ec0fc7e3c9503627d8d454348fdd63d0fee0462))
+
 ## [0.12.15](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.12.14...v0.12.15) (2026-06-22)
 
 ### Miscellaneous Chores
