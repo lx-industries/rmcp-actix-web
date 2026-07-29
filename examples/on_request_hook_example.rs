@@ -154,7 +154,7 @@ impl UserAwareService {
                 "role": claims.role,
                 "message": "Claims successfully propagated from middleware via on_request hook!"
             });
-            Ok(CallToolResult::success(vec![Content::text(
+            Ok(CallToolResult::success(vec![ContentBlock::text(
                 info.to_string(),
             )]))
         } else {
@@ -162,7 +162,7 @@ impl UserAwareService {
                 "message": "No user claims found. Try adding X-User-Id header.",
                 "hint": "curl -H 'X-User-Id: alice' -H 'X-User-Role: admin' ..."
             });
-            Ok(CallToolResult::success(vec![Content::text(
+            Ok(CallToolResult::success(vec![ContentBlock::text(
                 info.to_string(),
             )]))
         }
@@ -176,7 +176,7 @@ impl UserAwareService {
     ) -> Result<CallToolResult, McpError> {
         if let Some(claims) = context.extensions.get::<UserClaims>() {
             if claims.role == "admin" {
-                Ok(CallToolResult::success(vec![Content::text(format!(
+                Ok(CallToolResult::success(vec![ContentBlock::text(format!(
                     "Admin action executed by user: {}",
                     claims.user_id
                 ))]))

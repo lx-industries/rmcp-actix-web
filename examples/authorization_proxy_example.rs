@@ -86,7 +86,7 @@ impl ProxyService {
                 "note": "This is simulated data. In production, this would come from your backend API."
             });
 
-            Ok(CallToolResult::success(vec![Content::text(
+            Ok(CallToolResult::success(vec![ContentBlock::text(
                 simulated_response.to_string(),
             )]))
         } else {
@@ -111,7 +111,7 @@ impl ProxyService {
                 "timestamp": chrono::Utc::now().to_rfc3339(),
             });
 
-            Ok(CallToolResult::success(vec![Content::text(
+            Ok(CallToolResult::success(vec![ContentBlock::text(
                 result.to_string(),
             )]))
         } else {
@@ -140,7 +140,7 @@ impl ProxyService {
             })
         };
 
-        Ok(CallToolResult::success(vec![Content::text(
+        Ok(CallToolResult::success(vec![ContentBlock::text(
             status.to_string(),
         )]))
     }

@@ -44,14 +44,14 @@ impl HeadersTestService {
         let auth = self.captured_authorization.lock().await;
 
         if let Some(auth_value) = auth.as_ref() {
-            Ok(CallToolResult::success(vec![Content::text(
+            Ok(CallToolResult::success(vec![ContentBlock::text(
                 json!({
                     "authorization": auth_value
                 })
                 .to_string(),
             )]))
         } else {
-            Ok(CallToolResult::success(vec![Content::text(
+            Ok(CallToolResult::success(vec![ContentBlock::text(
                 "No Authorization header captured",
             )]))
         }
@@ -69,14 +69,14 @@ impl HeadersTestService {
             let mut last_auth = self.last_tool_authorization.lock().await;
             *last_auth = Some(auth.0.clone());
 
-            Ok(CallToolResult::success(vec![Content::text(
+            Ok(CallToolResult::success(vec![ContentBlock::text(
                 json!({
                     "authorization": auth.0
                 })
                 .to_string(),
             )]))
         } else {
-            Ok(CallToolResult::success(vec![Content::text(
+            Ok(CallToolResult::success(vec![ContentBlock::text(
                 json!({
                     "authorization": null,
                     "message": "No Authorization header in current request"
@@ -89,7 +89,9 @@ impl HeadersTestService {
     /// Test tool to verify the service is working
     #[tool(description = "Simple echo test")]
     fn echo(&self) -> Result<CallToolResult, McpError> {
-        Ok(CallToolResult::success(vec![Content::text("echo test")]))
+        Ok(CallToolResult::success(vec![ContentBlock::text(
+            "echo test",
+        )]))
     }
 }
 

@@ -55,14 +55,14 @@ impl Counter {
     }
 
     fn _create_resource_text(&self, uri: &str, name: &str) -> Resource {
-        RawResource::new(uri, name.to_string()).no_annotation()
+        Resource::new(uri, name.to_string())
     }
 
     #[tool(description = "Increment the counter by 1")]
     async fn increment(&self) -> Result<CallToolResult, McpError> {
         let mut counter = self.counter.lock().await;
         *counter += 1;
-        Ok(CallToolResult::success(vec![Content::text(
+        Ok(CallToolResult::success(vec![ContentBlock::text(
             counter.to_string(),
         )]))
     }
@@ -71,7 +71,7 @@ impl Counter {
     async fn decrement(&self) -> Result<CallToolResult, McpError> {
         let mut counter = self.counter.lock().await;
         *counter -= 1;
-        Ok(CallToolResult::success(vec![Content::text(
+        Ok(CallToolResult::success(vec![ContentBlock::text(
             counter.to_string(),
         )]))
     }
@@ -79,19 +79,19 @@ impl Counter {
     #[tool(description = "Get the current counter value")]
     async fn get_value(&self) -> Result<CallToolResult, McpError> {
         let counter = self.counter.lock().await;
-        Ok(CallToolResult::success(vec![Content::text(
+        Ok(CallToolResult::success(vec![ContentBlock::text(
             counter.to_string(),
         )]))
     }
 
     #[tool(description = "Say hello to the client")]
     fn say_hello(&self) -> Result<CallToolResult, McpError> {
-        Ok(CallToolResult::success(vec![Content::text("hello")]))
+        Ok(CallToolResult::success(vec![ContentBlock::text("hello")]))
     }
 
     #[tool(description = "Repeat what you say")]
     fn echo(&self, Parameters(object): Parameters<JsonObject>) -> Result<CallToolResult, McpError> {
-        Ok(CallToolResult::success(vec![Content::text(
+        Ok(CallToolResult::success(vec![ContentBlock::text(
             serde_json::Value::Object(object).to_string(),
         )]))
     }
@@ -101,7 +101,7 @@ impl Counter {
         &self,
         Parameters(StructRequest { a, b }): Parameters<StructRequest>,
     ) -> Result<CallToolResult, McpError> {
-        Ok(CallToolResult::success(vec![Content::text(
+        Ok(CallToolResult::success(vec![ContentBlock::text(
             (a + b).to_string(),
         )]))
     }
@@ -125,33 +125,25 @@ impl ServerHandler for Counter {
         _request: Option<PaginatedRequestParams>,
         _: RequestContext<RoleServer>,
     ) -> Result<ListResourcesResult, McpError> {
-        Ok(ListResourcesResult {
-            resources: vec![
-                self._create_resource_text("str:////Users/to/some/path/", "cwd"),
-                self._create_resource_text("memo://insights", "memo-name"),
-            ],
-            next_cursor: None,
-            meta: None,
-        })
+        Ok(ListResourcesResult::with_all_items(vec![
+            self._create_resource_text("str:////Users/to/some/path/", "cwd"),
+            self._create_resource_text("memo://insights", "memo-name"),
+        ]))
     }
 
     async fn read_resource(
         &self,
         ReadResourceRequestParams { uri, .. }: ReadResourceRequestParams,
         _: RequestContext<RoleServer>,
-    ) -> Result<ReadResourceResult, McpError> {
+    ) -> Result<ReadResourceResponse, McpError> {
         match uri.as_str() {
             "str:////Users/to/some/path/" => {
                 let cwd = "/Users/to/some/path/";
-                Ok(ReadResourceResult::new(vec![ResourceContents::text(
-                    cwd, uri,
-                )]))
+                Ok(ReadResourceResult::new(vec![ResourceContents::text(cwd, uri)]).into())
             }
             "memo://insights" => {
                 let memo = "Business Intelligence Memo\n\nAnalysis has revealed 5 key insights ...";
-                Ok(ReadResourceResult::new(vec![ResourceContents::text(
-                    memo, uri,
-                )]))
+                Ok(ReadResourceResult::new(vec![ResourceContents::text(memo, uri)]).into())
             }
             _ => Err(McpError::resource_not_found(
                 "resource_not_found",
@@ -167,20 +159,16 @@ impl ServerHandler for Counter {
         _request: Option<PaginatedRequestParams>,
         _: RequestContext<RoleServer>,
     ) -> Result<ListPromptsResult, McpError> {
-        Ok(ListPromptsResult {
-            next_cursor: None,
-            prompts: vec![Prompt::new(
-                "example_prompt",
-                Some("This is an example prompt that takes one required argument, message"),
-                Some(vec![
-                    PromptArgument::new("message")
-                        .with_title("Message")
-                        .with_description("A message to put in the prompt")
-                        .with_required(true),
-                ]),
-            )],
-            meta: None,
-        })
+        Ok(ListPromptsResult::with_all_items(vec![Prompt::new(
+            "example_prompt",
+            Some("This is an example prompt that takes one required argument, message"),
+            Some(vec![
+                PromptArgument::new("message")
+                    .with_title("Message")
+                    .with_description("A message to put in the prompt")
+                    .with_required(true),
+            ]),
+        )]))
     }
 
     async fn get_prompt(
@@ -189,7 +177,7 @@ impl ServerHandler for Counter {
             name, arguments, ..
         }: GetPromptRequestParams,
         _: RequestContext<RoleServer>,
-    ) -> Result<GetPromptResult, McpError> {
+    ) -> Result<GetPromptResponse, McpError> {
         match name.as_str() {
             "example_prompt" => {
                 let message = arguments
@@ -201,9 +189,10 @@ impl ServerHandler for Counter {
                 let prompt =
                     format!("This is an example prompt with your message here: '{message}'");
                 Ok(GetPromptResult::new(vec![PromptMessage::new(
-                    PromptMessageRole::User,
-                    PromptMessageContent::text(prompt),
-                )]))
+                    Role::User,
+                    ContentBlock::text(prompt),
+                )])
+                .into())
             }
             _ => Err(McpError::invalid_params("prompt not found", None)),
         }
@@ -214,11 +203,7 @@ impl ServerHandler for Counter {
         _request: Option<PaginatedRequestParams>,
         _: RequestContext<RoleServer>,
     ) -> Result<ListResourceTemplatesResult, McpError> {
-        Ok(ListResourceTemplatesResult {
-            next_cursor: None,
-            resource_templates: Vec::new(),
-            meta: None,
-        })
+        Ok(ListResourceTemplatesResult::with_all_items(Vec::new()))
     }
 
     async fn initialize(

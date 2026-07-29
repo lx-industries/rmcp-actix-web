@@ -67,7 +67,7 @@ mod extension_test_service {
                 json!({ "claims": null })
             };
 
-            Ok(CallToolResult::success(vec![Content::text(
+            Ok(CallToolResult::success(vec![ContentBlock::text(
                 result.to_string(),
             )]))
         }
@@ -75,7 +75,7 @@ mod extension_test_service {
         /// Simple echo test to verify service is working
         #[tool(description = "Simple echo test")]
         fn echo(&self) -> Result<CallToolResult, McpError> {
-            Ok(CallToolResult::success(vec![Content::text("echo")]))
+            Ok(CallToolResult::success(vec![ContentBlock::text("echo")]))
         }
     }
 

@@ -64,8 +64,8 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rmcp-actix-web = "0.2"
-rmcp = "0.3"
+rmcp-actix-web = "0.13"
+rmcp = "3"
 actix-web = "4"
 ```
 
@@ -75,16 +75,17 @@ Control which transports are compiled:
 
 ```toml
 # Default: StreamableHttp transport enabled
-rmcp-actix-web = "0.2"
+rmcp-actix-web = "0.13"
 
 # Only StreamableHttp transport (explicit)
-rmcp-actix-web = { version = "0.2", default-features = false, features = ["transport-streamable-http-server"] }
+rmcp-actix-web = { version = "0.13", default-features = false, features = ["transport-streamable-http-server"] }
 ```
 
 ## Compatibility Matrix
 
 | rmcp-actix-web | rmcp |
 |----------------|------|
+| 0.13.x         | 3.x  |
 | 0.6.1          | 0.6.3|
 | 0.4.2          | 0.6.1|
 | 0.2.2          | 0.3.0|
