@@ -40,14 +40,14 @@
       "customType": "regex",
       "managerFilePatterns": ["/(^|/)Dockerfile$/"],
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)( versioning=(?<versioning>.*?))?( extractVersionTemplate=\"(?<extractVersionTemplate>.*?)\")?\\s(ENV|ARG)\\s.*?_VERSION\\s*=?\"(?<currentValue>.*)\""
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)( registryUrl=(?<registryUrl>\\S+))?( versioning=(?<versioning>.*?))?( extractVersionTemplate=\"(?<extractVersionTemplate>.*?)\")?\\s(ENV|ARG)\\s.*?_VERSION\\s*=?\"(?<currentValue>.*)\""
       ]
     },
     {
       "customType": "regex",
       "managerFilePatterns": ["/(^|/).*\\.gitlab-ci\\.yml$/"],
       "matchStrings": [
-        "\\s*# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)( versioning=(?<versioning>.*?))?( extractVersionTemplate=\"(?<extractVersionTemplate>.*?)\")?\\s*.+_VERSION\\s*:\\s*\"(?<currentValue>.*)\""
+        "\\s*# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)( registryUrl=(?<registryUrl>\\S+))?( versioning=(?<versioning>.*?))?( extractVersionTemplate=\"(?<extractVersionTemplate>.*?)\")?\\s*.+_VERSION\\s*:\\s*\"(?<currentValue>.*)\""
       ]
     }
   ]
