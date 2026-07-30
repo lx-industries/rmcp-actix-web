@@ -71,14 +71,37 @@ actix-web = "4"
 
 ### Feature Flags
 
-Control which transports are compiled:
+| Feature | Default | Effect |
+|---------|---------|--------|
+| `transport-streamable-http` | yes | Enables the Streamable HTTP transport, which delegates every wire-protocol decision to rmcp's own `StreamableHttpService`. |
+| `legacy-transport` | no | Additionally exposes the hand-written transport that predates that delegation, at `rmcp_actix_web::transport::legacy_streamable_http_server`. |
+| `authorization-token-passthrough` | no | Forwards the `Authorization` header to the MCP service. Violates the MCP specification; see [SECURITY.md](SECURITY.md). |
 
 ```toml
-# Default: StreamableHttp transport enabled
+# Default: Streamable HTTP transport enabled
 rmcp-actix-web = "0.13"
 
-# Only StreamableHttp transport (explicit)
-rmcp-actix-web = { version = "0.13", default-features = false, features = ["transport-streamable-http-server"] }
+# Streamable HTTP transport (explicit)
+rmcp-actix-web = { version = "0.13", default-features = false, features = ["transport-streamable-http"] }
+
+# Forward Authorization headers to your MCP service (see SECURITY.md first)
+rmcp-actix-web = { version = "0.13", features = ["authorization-token-passthrough"] }
+```
+
+#### `legacy-transport`
+
+`legacy-transport` keeps the hand-written actix-web transport available alongside the
+delegating one. Enable it only if you depend on its wire behaviour or on its flat
+`on_request` extension shape, where handlers read hook-written values straight from
+`RequestContext::extensions`. It is frozen and receives no new features, and it does not
+support MCP `2026-07-28`: its sessionless path serves every peer the legacy wire shape.
+
+```toml
+rmcp-actix-web = { version = "0.13", features = ["legacy-transport"] }
+```
+
+```rust,ignore
+use rmcp_actix_web::transport::legacy_streamable_http_server::StreamableHttpService;
 ```
 
 ## Compatibility Matrix
@@ -92,6 +115,64 @@ rmcp-actix-web = { version = "0.13", default-features = false, features = ["tran
 | 0.2.x          | 0.2.x|
 | 0.1.x          | 0.2.x|
 
+## Upgrading to 0.13
+
+0.13 replaces this crate's hand-written Streamable HTTP transport with delegation to
+rmcp's own `StreamableHttpService`. rmcp now makes every wire-protocol decision, and this
+crate contributes actix-web `Scope` composition and the builder API. That makes rmcp's
+responses the contract, which changes observable behaviour in the four areas below. All
+of these changes are adopted deliberately; none of them are bugs.
+
+### Requests are now validated against `Host`
+
+| Request | Before | Now |
+|---------|--------|-----|
+| Any request whose `Host` is not `localhost`, `127.0.0.1`, or `::1` | served | `403 Forbidden`, body `Forbidden: Host header is not allowed` |
+| Any request carrying no `Host` header at all | served | `400 Bad Request`, body `Bad Request: missing Host header` |
+
+This is a DNS-rebinding defence inherited from rmcp. **Any deployment reachable under its
+own hostname rejects every request until you configure `.allowed_hosts(...)`.** HTTP/1.1
+clients always send `Host`, but actix's in-process test harness does not. See
+[Host and Origin Validation](#host-and-origin-validation) for how to configure both.
+
+### Session-handling status codes now follow rmcp
+
+| Request | Before | Now | Why |
+|---------|--------|-----|-----|
+| `DELETE` with an unknown session id | `404 Not Found` | `202 Accepted`, empty body | `DELETE` is idempotent: deleting a session that does not exist reaches the same end state as deleting one that does. |
+| `DELETE` with an empty `Mcp-Session-Id` | `400 Bad Request` | `202 Accepted`, empty body | Same idempotence, applied to an empty id: it is an id no session matches, not an absent one. |
+| `POST` or `GET` with an empty `Mcp-Session-Id` | `400 Bad Request` | `404 Not Found`, body `Not Found: Session not found` | An empty header value is not a missing header. It is a session id that no session matches, so the client can recover by re-initializing. |
+| `POST` with no session id that is not an `initialize` request | `400 Bad Request` | `422 Unprocessable Entity`, body `Unexpected message, expect initialize request` | The request is well-formed; it is the message that cannot be processed without a session. |
+
+Two statuses are unchanged, but their bodies are rmcp's wording now: `POST` or `GET`
+with an unknown non-empty session id still answers `404 Not Found`, with the body
+`Not Found: Session not found` rather than `Session not found`; `GET` or `DELETE` with no
+session id at all still answers `400 Bad Request`, with the body
+`Bad Request: Session ID is required` rather than
+`Bad Request: Mcp-Session-Id header is required`. Clients that match on body text rather
+than status need updating.
+
+### Hook-written extensions are nested
+
+rmcp hands your MCP service the whole `http::request::Parts`, so values written by the
+`on_request` hook are reached one hop further in than before. Read them with
+`rmcp_actix_web::transport::on_request_extensions(&context.extensions)` instead of
+indexing `context.extensions` directly — see
+[Middleware Extension Propagation](#middleware-extension-propagation).
+
+If you need the previous transport verbatim, including its flat extension shape, enable
+the [`legacy-transport`](#legacy-transport) feature.
+
+### SSE keep-alive is unset by default, unlike rmcp's own default
+
+This crate passes the `sse_keep_alive` builder value through to rmcp verbatim, so leaving
+it unset yields `None` — no keep-alive pings at all — even though rmcp's own
+`StreamableHttpServerConfig::default()` sends one every 15 seconds. This is not a change
+from the previous version of this crate: the hand-written transport also defaulted to no
+keep-alive. It is called out here because a reader who treats "rmcp's responses are the
+contract" as the whole story could be surprised behind an idle-timeout proxy. Set
+`.sse_keep_alive(Duration::from_secs(...))` explicitly if you need one.
+
 ## Quick Start
 
 ### Framework-Level Composition
@@ -99,7 +180,7 @@ rmcp-actix-web = { version = "0.13", default-features = false, features = ["tran
 Mount MCP services at custom paths within existing actix-web applications:
 
 ```rust
-use rmcp_actix_web::StreamableHttpService;
+use rmcp_actix_web::transport::StreamableHttpService;
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 use actix_web::{App, HttpServer, web};
 use std::sync::Arc;
@@ -127,6 +208,44 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 ```
+
+### Host and Origin Validation
+
+By default, the transport rejects any request whose `Host` header is not `localhost`,
+`127.0.0.1`, or `::1`, responding `403 Forbidden`. This is a DNS-rebinding defence
+inherited from rmcp and is safe for servers running on loopback, but it means **any
+deployment reachable under its own hostname rejects every request unless configured**.
+Set `.allowed_hosts(...)` to the hostnames or `host:port` authorities your deployment
+is reachable under:
+
+```rust,ignore
+let http_service = StreamableHttpService::builder()
+    .service_factory(Arc::new(|| Ok(MyMcpService::new())))
+    .session_manager(Arc::new(LocalSessionManager::default()))
+    .allowed_hosts(vec!["mcp.example.com".to_string()])
+    .build();
+```
+
+`.allowed_origins(...)` similarly restricts the inbound `Origin` header; it defaults to
+an empty list, which disables `Origin` validation.
+
+The same defence also rejects a request that carries **no** `Host` header at all, with
+`400 Bad Request` and the body `Bad Request: missing Host header`. Setting
+`allowed_hosts` does not exempt a request from this: the header must be present for
+there to be an authority to check. HTTP/1.1 clients always send `Host`, so this does not
+affect ordinary traffic, but actix's in-process test harness does not — tests written
+with `actix_web::test::TestRequest` must set the header explicitly:
+
+```rust,ignore
+let req = test::TestRequest::post()
+    .uri("/mcp/")
+    .insert_header(("host", "localhost"))
+    // ...
+    .to_request();
+```
+
+Both behaviours are new in 0.13; see [Upgrading to 0.13](#upgrading-to-013) for the full
+list of changes an upgrade brings.
 
 ## Examples
 
@@ -180,7 +299,7 @@ Each example includes detailed documentation and curl commands for testing.
 Use the `on_request` hook to propagate typed data from actix-web middleware to MCP request handlers. This is useful for passing JWT claims, user context, or other authentication data:
 
 ```rust
-use rmcp_actix_web::StreamableHttpService;
+use rmcp_actix_web::transport::StreamableHttpService;
 use actix_web::HttpMessage;
 use std::sync::Arc;
 
@@ -199,13 +318,32 @@ let http_service = StreamableHttpService::builder()
     .build();
 ```
 
-The propagated extensions are accessible in your MCP service handlers via `RequestContext::extensions`.
+rmcp's transport nests the hook's extensions inside `http::request::Parts`, so read them back
+in your MCP service handlers with `rmcp_actix_web::transport::on_request_extensions(&context.extensions)`
+rather than reading `context.extensions` directly:
+
+```rust,ignore
+use rmcp_actix_web::transport::on_request_extensions;
+
+async fn handle_request(
+    &self,
+    request: SomeRequest,
+    context: RequestContext<RoleServer>,
+) -> Result<Response, McpError> {
+    if let Some(claims) = on_request_extensions(&context.extensions)
+        .and_then(|extensions| extensions.get::<JwtClaims>())
+    {
+        // ...
+    }
+    // ...
+}
+```
 
 ### Proxy Support
 - **Authorization Forwarding**: Bearer tokens from Authorization headers can be forwarded to MCP services (requires `authorization-token-passthrough` feature)
 - **MCP Proxy Pattern**: Enable MCP services to act as proxies to backend APIs
 - **Selective Header Forwarding**: Only forwards Authorization header when feature is enabled
-- **Type-Safe Access**: Access forwarded headers via `RequestContext` extensions
+- **Type-Safe Access**: Read the forwarded header as an `AuthorizationHeader` via `transport::on_request_extensions(&context.extensions)`
 - **Security Notice**: Token passthrough violates MCP specifications - see [SECURITY.md](SECURITY.md) for important details
 
 ## License
