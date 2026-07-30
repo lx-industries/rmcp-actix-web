@@ -1,220 +1,232 @@
-//! Streamable HTTP transport implementation for MCP.
+//! Streamable HTTP transport implementation.
 //!
-//! This module provides a bidirectional HTTP transport with session management,
-//! supporting both request/response and streaming patterns for MCP communication.
-//!
-//! ## Architecture
-//!
-//! The transport uses three HTTP methods on a single endpoint:
-//! - **GET**: Resume or open SSE stream to receive server-to-client messages
-//! - **POST**: Send JSON-RPC requests (returns SSE stream with responses)
-//! - **DELETE**: Close session and cleanup resources
-//!
-//! ## Features
-//!
-//! - Full bidirectional communication
-//! - Session management with pluggable backends
-//! - Support for both streaming and request/response patterns
-//! - Efficient message routing
-//! - Graceful connection handling
-//!
-//! ## Session Management
-//!
-//! The transport supports different session managers:
-//! - `LocalSessionManager`: In-memory session storage (default)
-//! - Custom implementations via the `SessionManager` trait
-//!
-//! ## Example
-//!
-//! ```rust,no_run
-//! use rmcp_actix_web::transport::StreamableHttpService;
-//! use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
-//! use actix_web::{App, HttpServer};
-//! use std::sync::Arc;
-//!
-//! # use rmcp::{ServerHandler, model::ServerInfo};
-//! # #[derive(Clone)]
-//! # struct MyService;
-//! # impl ServerHandler for MyService {
-//! #     fn get_info(&self) -> ServerInfo { ServerInfo::default() }
-//! # }
-//! # impl MyService { fn new() -> Self { Self } }
-//! #[actix_web::main]
-//! async fn main() -> std::io::Result<()> {
-//!     // Create service OUTSIDE HttpServer::new() to share across workers
-//!     let service = StreamableHttpService::builder()
-//!         .service_factory(Arc::new(|| Ok(MyService::new())))
-//!         .session_manager(Arc::new(LocalSessionManager::default()))
-//!         .stateful_mode(true)
-//!         .build();
-//!
-//!     HttpServer::new(move || {
-//!         App::new()
-//!             // Clone service for each worker (shares the same LocalSessionManager)
-//!             .service(service.clone().scope())
-//!     })
-//!     .bind("127.0.0.1:8080")?
-//!     .run()
-//!     .await
-//! }
-//! ```
+//! This module owns actix-web integration only: `Scope` composition and the builder
+//! API. Every wire-protocol decision — session lifecycle, protocol-version negotiation,
+//! SEP-2567 sessionless dispatch, `_meta`/header consistency, DNS-rebinding defence and
+//! request-body limits — is made by
+//! [`rmcp::transport::streamable_http_server::StreamableHttpService::handle`].
 
 use std::{sync::Arc, time::Duration};
 
 use actix_web::{
-    HttpRequest, HttpResponse, Result, Scope,
-    error::InternalError,
-    http::{
-        StatusCode,
-        header::{self, CACHE_CONTROL},
-    },
-    middleware,
-    web::{self, Bytes, Data},
+    Error as ActixError, HttpRequest, HttpResponse, Result, Scope,
+    error::{ErrorBadRequest, PayloadError},
+    middleware, web,
 };
-use futures::{Stream, StreamExt};
+use bytes::Bytes;
+use futures::StreamExt;
+use http_body::Frame;
+use http_body_util::{BodyDataStream, StreamBody};
+use rmcp::transport::streamable_http_server::{
+    StreamableHttpServerConfig as RmcpConfig, StreamableHttpService as RmcpService,
+    session::SessionManager,
+};
 use tokio_stream::wrappers::ReceiverStream;
 
-/// Type alias for the on_request hook function.
+/// Bound on the number of body chunks buffered between actix's `!Send` payload
+/// and the `Send` body handed to rmcp. Backpressure stops the forwarder when full.
+const BODY_CHANNEL_CAPACITY: usize = 8;
+
+/// The request body type handed to rmcp's transport.
 ///
-/// This hook is called for each incoming request, allowing users to propagate
-/// typed extensions from the actix-web `HttpRequest` to rmcp's `RequestContext::extensions`.
-pub type OnRequestHook = dyn Fn(&HttpRequest, &mut rmcp::model::Extensions) + Send + Sync + 'static;
+/// Streaming rather than buffered so rmcp's own `max_request_body_bytes` limit is
+/// enforced while the body arrives, as it is for its axum front end.
+type BridgedRequestBody = StreamBody<ReceiverStream<Result<Frame<Bytes>, PayloadError>>>;
 
-use rmcp::{
-    RoleServer,
-    model::{ClientJsonRpcMessage, ClientRequest},
-    serve_server,
-    service::serve_directly,
-    transport::{
-        OneshotTransport, TransportAdapterIdentity,
-        common::http_header::{HEADER_LAST_EVENT_ID, HEADER_SESSION_ID},
-        streamable_http_server::session::SessionManager,
-    },
-};
-
-use rmcp::model::GetExtensions;
-
-#[cfg(feature = "authorization-token-passthrough")]
-use super::AuthorizationHeader;
-
-// Local constants
-const HEADER_X_ACCEL_BUFFERING: &str = "X-Accel-Buffering";
-const EVENT_STREAM_MIME_TYPE: &str = "text/event-stream";
-const JSON_MIME_TYPE: &str = "application/json";
-const MISSING_SESSION_ID_BODY: &str = "Bad Request: Mcp-Session-Id header is required";
-const SESSION_NOT_FOUND_BODY: &str = "Session not found";
-
-/// Configuration for the streamable HTTP server transport.
-///
-/// Contains settings for session management and connection behavior.
-#[derive(Debug, Clone)]
-pub struct StreamableHttpServerConfig {
-    /// Whether to enable stateful session management
-    pub stateful_mode: bool,
-    /// Optional keep-alive interval for SSE connections
-    pub sse_keep_alive: Option<Duration>,
+/// Converts an actix-web (`http` 0.2) method into an rmcp (`http` 1.x) method.
+fn convert_method(method: &actix_web::http::Method) -> Result<http::Method, ActixError> {
+    http::Method::from_bytes(method.as_str().as_bytes())
+        .map_err(|_| ErrorBadRequest("Bad Request: unsupported HTTP method"))
 }
 
-impl Default for StreamableHttpServerConfig {
-    fn default() -> Self {
-        Self {
-            stateful_mode: true,
-            sse_keep_alive: None,
-        }
+/// Converts an actix-web (`http` 0.2) URI into an rmcp (`http` 1.x) URI.
+fn convert_uri(uri: &actix_web::http::Uri) -> Result<http::Uri, ActixError> {
+    // `try_from(String)` hands the existing allocation to `Bytes`, where `parse()`
+    // would copy the whole URI into a second buffer.
+    http::Uri::try_from(uri.to_string())
+        .map_err(|_| ErrorBadRequest("Bad Request: unsupported request URI"))
+}
+
+/// Converts an actix-web (`http` 0.2) version into an rmcp (`http` 1.x) version.
+fn convert_version(version: actix_web::http::Version) -> http::Version {
+    match version {
+        actix_web::http::Version::HTTP_09 => http::Version::HTTP_09,
+        actix_web::http::Version::HTTP_10 => http::Version::HTTP_10,
+        actix_web::http::Version::HTTP_2 => http::Version::HTTP_2,
+        actix_web::http::Version::HTTP_3 => http::Version::HTTP_3,
+        _ => http::Version::HTTP_11,
     }
 }
 
+/// Converts an actix-web (`http` 0.2) header map into an rmcp (`http` 1.x) header map.
+///
+/// Repeated header values are preserved in order. A name or value the target crate
+/// rejects is skipped rather than failing the request; every header rmcp inspects is
+/// ASCII by specification.
+///
+/// Unlike [`convert_response_headers`], the skip is reachable here: `http` 1.x rejects
+/// a quotation mark in a header name where `http` 0.2 accepts one, so a name actix
+/// admits can have no `http` 1.x equivalent.
+fn convert_request_headers(headers: &actix_web::http::header::HeaderMap) -> http::HeaderMap {
+    let mut converted = http::HeaderMap::with_capacity(headers.len());
+    for (name, value) in headers.iter() {
+        let Ok(name) = http::header::HeaderName::from_bytes(name.as_str().as_bytes()) else {
+            continue;
+        };
+        let Ok(value) = http::header::HeaderValue::from_bytes(value.as_bytes()) else {
+            continue;
+        };
+        converted.append(name, value);
+    }
+    converted
+}
+
+/// Converts an rmcp (`http` 1.x) header map into an actix-web (`http` 0.2) header map.
+///
+/// The caller appends the result onto a response builder one pair at a time, which is
+/// the only header API `HttpResponseBuilder` offers — it accepts no prepared map.
+/// Returning the map rather than writing into the builder keeps this conversion
+/// symmetric with [`convert_request_headers`] and testable without one.
+///
+/// A name or value the target crate rejects is skipped rather than failing the whole
+/// response. No such input is reachable in this direction: the two crate versions
+/// validate header values identically, and for names `http` 1.x is the stricter of
+/// the two, so anything already held in an `http` 1.x map converts. The conversions
+/// are fallible regardless, and skipping keeps a future divergence from panicking on
+/// a response path.
+///
+/// The reverse direction is not symmetric — see [`convert_request_headers`].
+fn convert_response_headers(headers: &http::HeaderMap) -> actix_web::http::header::HeaderMap {
+    let mut converted = actix_web::http::header::HeaderMap::with_capacity(headers.len());
+    for (name, value) in headers.iter() {
+        let Ok(name) = actix_web::http::header::HeaderName::from_bytes(name.as_str().as_bytes())
+        else {
+            continue;
+        };
+        let Ok(value) = actix_web::http::header::HeaderValue::from_bytes(value.as_bytes()) else {
+            continue;
+        };
+        converted.append(name, value);
+    }
+    converted
+}
+
+/// Adapts actix-web's `!Send` payload into a `Send` streaming body.
+///
+/// A bounded channel carries chunks from a task spawned on actix's local runtime to
+/// the body rmcp polls, which must be `Send` to satisfy `handle`'s bound.
+fn bridge_payload(mut payload: web::Payload) -> BridgedRequestBody {
+    let (sender, receiver) = tokio::sync::mpsc::channel(BODY_CHANNEL_CAPACITY);
+    actix_web::rt::spawn(async move {
+        while let Some(chunk) = payload.next().await {
+            if sender.send(chunk.map(Frame::data)).await.is_err() {
+                break;
+            }
+        }
+    });
+    StreamBody::new(ReceiverStream::new(receiver))
+}
+
+/// Applies this crate's `Authorization` policy to the bridged request.
+///
+/// MCP servers must not forward client tokens to upstream APIs, so the header is
+/// removed from what handlers can observe unless `authorization-token-passthrough`
+/// is enabled. When it is, the value is additionally surfaced as
+/// [`AuthorizationHeader`](super::AuthorizationHeader) in the request extensions.
+fn apply_authorization_policy(
+    headers: &mut http::HeaderMap,
+    extensions: &mut rmcp::model::Extensions,
+) {
+    let Some(value) = headers.remove(http::header::AUTHORIZATION) else {
+        return;
+    };
+    #[cfg(feature = "authorization-token-passthrough")]
+    {
+        let Ok(text) = value.to_str() else {
+            tracing::debug!("Ignoring non-UTF-8 Authorization header");
+            return;
+        };
+        if let Some(token) = text.strip_prefix("Bearer ")
+            && !token.is_empty()
+        {
+            tracing::debug!(
+                "Forwarding Authorization header to MCP service. MCP services must not \
+                 pass this token to upstream APIs per MCP spec. See SECURITY.md."
+            );
+            let forwarded = super::AuthorizationHeader(text.to_string());
+            headers.insert(http::header::AUTHORIZATION, value);
+            extensions.insert(forwarded);
+        } else {
+            tracing::debug!("Ignoring malformed Authorization header");
+        }
+    }
+    #[cfg(not(feature = "authorization-token-passthrough"))]
+    {
+        let _ = (value, extensions);
+        tracing::debug!(
+            "Stripped Authorization header; enable authorization-token-passthrough to forward it"
+        );
+    }
+}
+
+/// Type alias for the `on_request` hook function.
+///
+/// The hook is called for each incoming request and may write typed values that
+/// handlers later read. rmcp carries those values to handlers inside the
+/// `http::request::Parts` it places in the MCP request context.
+pub type OnRequestHook = dyn Fn(&HttpRequest, &mut rmcp::model::Extensions) + Send + Sync + 'static;
+
 /// Streamable HTTP transport service for actix-web integration.
-///
-/// Provides bidirectional MCP communication over HTTP with session management.
-/// This service can be integrated into existing actix-web applications.
-/// Uses a builder pattern for configuration.
-///
-/// # Type Parameters
-///
-/// * `S` - The MCP service type that handles protocol messages
-/// * `M` - The session manager type (defaults to `LocalSessionManager`)
-///
-/// # Architecture
-///
-/// The service manages endpoints with multiple HTTP methods:
-/// - GET: For streaming event connections
-/// - POST: For sending messages and creating sessions
-/// - DELETE: For closing sessions
-///
-/// Each client is identified by a session ID that must be provided in request headers.
-///
-/// # Example
-///
-/// ```rust,no_run
-/// use rmcp_actix_web::transport::StreamableHttpService;
-/// use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
-/// use actix_web::{App, HttpServer, web};
-/// use std::{sync::Arc, time::Duration};
-///
-/// # use rmcp::{ServerHandler, model::ServerInfo};
-/// # #[derive(Clone)]
-/// # struct MyService;
-/// # impl ServerHandler for MyService {
-/// #     fn get_info(&self) -> ServerInfo { ServerInfo::default() }
-/// # }
-/// # impl MyService { fn new() -> Self { Self } }
-/// #[actix_web::main]
-/// async fn main() -> std::io::Result<()> {
-///     // Create service OUTSIDE HttpServer::new() to share across workers
-///     let service = StreamableHttpService::builder()
-///         .service_factory(Arc::new(|| Ok(MyService::new())))
-///         .session_manager(Arc::new(LocalSessionManager::default()))
-///         .stateful_mode(true)
-///         .sse_keep_alive(Duration::from_secs(30))
-///         .build();
-///
-///     HttpServer::new(move || {
-///         App::new()
-///             // Clone service for each worker (shares the same LocalSessionManager)
-///             .service(web::scope("/mcp").service(service.clone().scope()))
-///     })
-///     .bind("127.0.0.1:8080")?
-///     .run()
-///     .await
-/// }
-/// ```
 #[derive(bon::Builder)]
 pub struct StreamableHttpService<
     S,
     M = rmcp::transport::streamable_http_server::session::local::LocalSessionManager,
 > {
-    /// The service factory function that creates new MCP service instances
+    /// The service factory function that creates new MCP service instances.
     service_factory: Arc<dyn Fn() -> Result<S, std::io::Error> + Send + Sync>,
 
-    /// The session manager for tracking client connections
+    /// The session manager for tracking client connections.
     session_manager: Arc<M>,
 
-    /// Whether to enable stateful session management
+    /// Whether to keep sessions alive for peers negotiating a legacy protocol version.
+    ///
+    /// Defaults to `true`. Peers negotiating `2026-07-28` are always served statelessly
+    /// per SEP-2567, regardless of this setting.
+    ///
+    /// Setting it to `false` also narrows the accepted methods: `DELETE` answers
+    /// `405 Method Not Allowed`, and so does `GET` unless the session manager supplies
+    /// an event store for the transport to replay from.
     #[builder(default = true)]
     stateful_mode: bool,
 
-    /// Optional keep-alive interval for SSE connections
+    /// Keep-alive interval for SSE connections.
+    ///
+    /// The value is passed to rmcp as given, so leaving it unset means no keep-alive at
+    /// all rather than rmcp's own default of 15 seconds. Set it explicitly when
+    /// intermediaries close idle connections.
     sse_keep_alive: Option<Duration>,
 
-    /// Optional hook called for each request to propagate extensions from HttpRequest to RequestContext.
+    /// Hostnames or `host:port` authorities accepted in the inbound `Host` header.
     ///
-    /// This allows middleware-populated data (e.g., JWT claims) to be accessed in MCP handlers.
+    /// Defaults to rmcp's loopback-only list (`localhost`, `127.0.0.1`, `::1`), which
+    /// prevents DNS-rebinding attacks against locally running servers. Deployments
+    /// reachable under any other hostname must set their own list, otherwise every
+    /// request is rejected with `403 Forbidden`. An empty list disables the check,
+    /// accepting requests carrying any `Host` header: it does not fall back to the
+    /// loopback default. Building this list from configuration that may resolve to
+    /// empty silently disables DNS-rebinding protection, so treat an empty result as
+    /// a configuration error rather than passing it through.
+    allowed_hosts: Option<Vec<String>>,
+
+    /// Browser origins accepted in the inbound `Origin` header.
     ///
-    /// # Example
-    ///
-    /// ```rust,ignore
-    /// use std::sync::Arc;
-    /// use actix_web::HttpMessage;
-    ///
-    /// StreamableHttpService::builder()
-    ///     .on_request(Arc::new(|http_req, ext| {
-    ///         if let Some(claims) = http_req.extensions().get::<MyClaims>() {
-    ///             ext.insert(claims.clone());
-    ///         }
-    ///     }))
-    ///     .build()
-    /// ```
+    /// Defaults to rmcp's empty list, which disables `Origin` validation. When
+    /// non-empty, entries must include a scheme; requests without an `Origin` header
+    /// still pass.
+    allowed_origins: Option<Vec<String>>,
+
+    /// Optional hook called for each request to propagate extensions from the
+    /// actix-web request to the MCP request context.
     on_request: Option<Arc<OnRequestHook>>,
 }
 
@@ -225,34 +237,18 @@ impl<S, M> Clone for StreamableHttpService<S, M> {
             session_manager: self.session_manager.clone(),
             stateful_mode: self.stateful_mode,
             sse_keep_alive: self.sse_keep_alive,
+            allowed_hosts: self.allowed_hosts.clone(),
+            allowed_origins: self.allowed_origins.clone(),
             on_request: self.on_request.clone(),
         }
     }
 }
 
-// Convenience methods for StreamableHttpServiceBuilder
 impl<S, M, State: streamable_http_service_builder::State> StreamableHttpServiceBuilder<S, M, State>
 where
     State::OnRequest: streamable_http_service_builder::IsUnset,
 {
-    /// Sets the on_request hook using a closure.
-    ///
-    /// This is a convenience method that automatically wraps the closure in an `Arc`,
-    /// making it easier to use without manual Arc wrapping.
-    ///
-    /// # Example
-    ///
-    /// ```rust,ignore
-    /// use actix_web::HttpMessage;
-    ///
-    /// StreamableHttpService::builder()
-    ///     .on_request_fn(|http_req, ext| {
-    ///         if let Some(claims) = http_req.extensions().get::<MyClaims>() {
-    ///             ext.insert(claims.clone());
-    ///         }
-    ///     })
-    ///     .build()
-    /// ```
+    /// Sets the `on_request` hook using a closure, wrapping it in an `Arc`.
     pub fn on_request_fn(
         self,
         hook: impl Fn(&HttpRequest, &mut rmcp::model::Extensions) + Send + Sync + 'static,
@@ -262,165 +258,18 @@ where
     }
 }
 
-/// Internal data structure used by handlers to store service configuration
-/// with Arc-wrapped session manager for thread safety.
-#[derive(Clone)]
+/// Per-scope state: the upstream service plus this crate's hook.
 struct AppData<S, M> {
-    /// The service factory function that creates new MCP service instances
-    service_factory: Arc<dyn Fn() -> Result<S, std::io::Error> + Send + Sync>,
-    /// The session manager wrapped in Arc for thread safety
-    session_manager: Arc<M>,
-    /// Whether the service operates in stateful mode
-    stateful_mode: bool,
-    /// Optional keep-alive interval for SSE connections
-    sse_keep_alive: Option<Duration>,
-    /// Optional hook for propagating extensions from HttpRequest to RequestContext
+    inner: RmcpService<S, M>,
     on_request: Option<Arc<OnRequestHook>>,
-}
-
-impl<S, M> AppData<S, M> {
-    fn get_service(&self) -> Result<S, std::io::Error> {
-        (self.service_factory)()
-    }
-}
-
-// SSE Stream Helper Functions
-//
-// These functions provide reusable SSE keep-alive functionality to avoid code duplication.
-
-/// Serialize a `ServerSseMessage` as a single SSE event.
-///
-/// Priming events ([SEP-1699](https://github.com/modelcontextprotocol/modelcontextprotocol/issues/1699))
-/// carry no JSON-RPC payload (`message == None`) and MUST be emitted with an empty `data` field
-/// (`data:\n\n`), not the JSON literal `null`.
-fn format_sse_event(
-    event_id: Option<&str>,
-    message: Option<&rmcp::model::ServerJsonRpcMessage>,
-) -> Bytes {
-    let mut output = String::new();
-    if let Some(id) = event_id {
-        output.push_str(&format!("id: {id}\n"));
-    }
-    match message {
-        Some(message) => {
-            let data = serde_json::to_string(message).unwrap_or_else(|_| "{}".to_string());
-            output.push_str(&format!("data: {data}\n\n"));
-        }
-        None => output.push_str("data:\n\n"),
-    }
-    Bytes::from(output)
-}
-
-/// Wraps any SSE-formatted stream with keep-alive ping support.
-///
-/// Adds periodic `:ping\n\n` messages during silent periods to prevent connection timeouts.
-/// The wrapper automatically stops when the underlying stream ends, allowing POST responses
-/// to close properly per MCP spec.
-///
-/// # Arguments
-///
-/// * `stream` - A stream of SSE-formatted bytes (already formatted as `data: ...\n\n`)
-/// * `keep_alive` - Optional keep-alive interval. If `Some`, sends `:ping\n\n` at this interval
-///   during silent periods. If `None`, no pings are sent.
-///
-/// # Returns
-///
-/// A stream that multiplexes the input stream with keep-alive pings, ending when the input ends.
-fn wrap_with_sse_keepalive<S>(
-    stream: S,
-    keep_alive: Option<Duration>,
-) -> impl Stream<Item = Result<Bytes, actix_web::Error>>
-where
-    S: Stream<Item = Result<Bytes, actix_web::Error>> + Send + 'static,
-{
-    async_stream::stream! {
-        let mut stream = Box::pin(stream);
-        let mut keep_alive_timer = keep_alive.map(|duration| tokio::time::interval(duration));
-
-        // Consume the immediate first tick if keep-alive is enabled
-        if let Some(ref mut timer) = keep_alive_timer {
-            timer.tick().await;
-        }
-
-        loop {
-            tokio::select! {
-                result = stream.next() => {
-                    match result {
-                        Some(msg) => yield msg,
-                        None => break, // Stream ended, stop sending pings
-                    }
-                }
-                _ = async {
-                    match keep_alive_timer.as_mut() {
-                        Some(timer) => {
-                            timer.tick().await;
-                        }
-                        None => {
-                            std::future::pending::<()>().await;
-                        }
-                    }
-                } => {
-                    yield Ok(Bytes::from(":ping\n\n"));
-                }
-            }
-        }
-    }
 }
 
 impl<S, M> StreamableHttpService<S, M>
 where
-    S: Clone + rmcp::ServerHandler + Send + 'static,
+    S: rmcp::ServerHandler + Send + 'static,
     M: SessionManager + 'static,
 {
-    /// Creates a new scope configured with this service for framework-level composition.
-    ///
-    /// This method provides framework-level composition aligned with RMCP patterns,
-    /// similar to how `SseService::scope()` works. This allows mounting the
-    /// streamable HTTP service at custom paths using actix-web's routing.
-    ///
-    /// The method consumes `self`, so you can call it directly on the service instance.
-    /// If you need to use the service multiple times, wrap it in an `Arc` and clone it.
-    ///
-    /// This method is equivalent to `scope_with_path("")`.
-    ///
-    /// # Returns
-    ///
-    /// Returns an actix-web `Scope` configured with the streamable HTTP routes
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// use rmcp_actix_web::transport::StreamableHttpService;
-    /// use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
-    /// use actix_web::{App, HttpServer, web};
-    /// use std::sync::Arc;
-    ///
-    /// # use rmcp::{ServerHandler, model::ServerInfo};
-    /// # #[derive(Clone)]
-    /// # struct MyService;
-    /// # impl ServerHandler for MyService {
-    /// #     fn get_info(&self) -> ServerInfo { ServerInfo::default() }
-    /// # }
-    /// # impl MyService { fn new() -> Self { Self } }
-    /// #[actix_web::main]
-    /// async fn main() -> std::io::Result<()> {
-    ///     // Create service OUTSIDE HttpServer::new() to share across workers
-    ///     let service = StreamableHttpService::builder()
-    ///         .service_factory(Arc::new(|| Ok(MyService::new())))
-    ///         .session_manager(Arc::new(LocalSessionManager::default()))
-    ///         .build();
-    ///
-    ///     HttpServer::new(move || {
-    ///         App::new()
-    ///             // Clone service for each worker (shares the same LocalSessionManager)
-    ///             .service(web::scope("/api/v1/mcp").service(service.clone().scope()))
-    ///     })
-    ///     .bind("127.0.0.1:8080")?
-    ///     .run();
-    ///
-    ///     Ok(())
-    /// }
-    /// ```
+    /// Creates a scope configured with this service, mounted at the caller's path.
     pub fn scope(
         self,
     ) -> Scope<
@@ -435,55 +284,7 @@ where
         self.scope_with_path("")
     }
 
-    /// Creates a new scope configured with this service for framework-level composition.
-    ///
-    /// This method provides framework-level composition aligned with RMCP patterns,
-    /// similar to how `SseService::scope()` works. This allows mounting the
-    /// streamable HTTP service at custom paths using actix-web's routing.
-    ///
-    /// The method consumes `self`, so you can call it directly on the service instance.
-    /// If you need to use the service multiple times, wrap it in an `Arc` and clone it.
-    ///
-    /// This method is similar to `scope` except that it allows specifying a custom path.
-    ///
-    /// # Returns
-    ///
-    /// Returns an actix-web `Scope` configured with the streamable HTTP routes
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// use rmcp_actix_web::transport::{StreamableHttpService, AuthorizationHeader};
-    /// use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
-    /// use actix_web::{App, HttpServer, web};
-    /// use std::sync::Arc;
-    ///
-    /// # use rmcp::{ServerHandler, model::ServerInfo};
-    /// # #[derive(Clone)]
-    /// # struct MyService;
-    /// # impl ServerHandler for MyService {
-    /// #     fn get_info(&self) -> ServerInfo { ServerInfo::default() }
-    /// # }
-    /// # impl MyService { fn new() -> Self { Self } }
-    /// #[actix_web::main]
-    /// async fn main() -> std::io::Result<()> {
-    ///     // Create service OUTSIDE HttpServer::new() to share across workers
-    ///     let service = StreamableHttpService::builder()
-    ///         .service_factory(Arc::new(|| Ok(MyService::new())))
-    ///         .session_manager(Arc::new(LocalSessionManager::default()))
-    ///         .build();
-    ///
-    ///     HttpServer::new(move || {
-    ///         App::new()
-    ///             // Clone service for each worker (shares the same LocalSessionManager)
-    ///             .service(service.clone().scope_with_path("/api/v1/mcp"))
-    ///     })
-    ///     .bind("127.0.0.1:8080")?
-    ///     .run();
-    ///
-    ///     Ok(())
-    /// }
-    /// ```
+    /// Creates a scope configured with this service, mounted at `path`.
     pub fn scope_with_path(
         self,
         path: &str,
@@ -496,656 +297,194 @@ where
             InitError = (),
         >,
     > {
+        let mut config = RmcpConfig::default()
+            .with_sse_keep_alive(self.sse_keep_alive)
+            .with_legacy_session_mode(self.stateful_mode);
+        if let Some(allowed_hosts) = self.allowed_hosts {
+            config = config.with_allowed_hosts(allowed_hosts);
+        }
+        if let Some(allowed_origins) = self.allowed_origins {
+            config = config.with_allowed_origins(allowed_origins);
+        }
+        let service_factory = self.service_factory;
+        let inner = RmcpService::new(move || (service_factory)(), self.session_manager, config);
         let app_data = AppData {
-            service_factory: self.service_factory,
-            session_manager: self.session_manager,
-            stateful_mode: self.stateful_mode,
-            sse_keep_alive: self.sse_keep_alive,
+            inner,
             on_request: self.on_request,
         };
 
         web::scope(path)
-            .app_data(Data::new(app_data))
+            .app_data(web::Data::new(app_data))
             .wrap(middleware::NormalizePath::trim())
-            .route("", web::get().to(Self::handle_get))
-            .route("", web::post().to(Self::handle_post))
-            .route("", web::delete().to(Self::handle_delete))
+            .route("", web::route().to(Self::handle))
     }
 
-    async fn handle_get(req: HttpRequest, service: Data<AppData<S, M>>) -> Result<HttpResponse> {
-        // Check accept header
-        let accept = req
-            .headers()
-            .get(header::ACCEPT)
-            .and_then(|h| h.to_str().ok());
-
-        if !accept.is_some_and(|header| header.contains(EVENT_STREAM_MIME_TYPE)) {
-            return Ok(HttpResponse::NotAcceptable()
-                .body("Not Acceptable: Client must accept text/event-stream"));
-        }
-
-        // Check session id
-        let session_id = req
-            .headers()
-            .get(HEADER_SESSION_ID)
-            .and_then(|v| v.to_str().ok())
-            .filter(|s| !s.is_empty())
-            .map(|s| s.to_owned().into());
-
-        let Some(session_id) = session_id else {
-            return Ok(HttpResponse::BadRequest().body(MISSING_SESSION_ID_BODY));
-        };
-
-        tracing::debug!(%session_id, "GET request for SSE stream");
-
-        // Check if session exists
-        let has_session = service
-            .session_manager
-            .has_session(&session_id)
-            .await
-            .map_err(|e| InternalError::new(e, StatusCode::INTERNAL_SERVER_ERROR))?;
-
-        if !has_session {
-            tracing::warn!(%session_id, "Session not found");
-            return Ok(HttpResponse::NotFound().body(SESSION_NOT_FOUND_BODY));
-        }
-
-        // Check if last event id is provided
-        let last_event_id = req
-            .headers()
-            .get(HEADER_LAST_EVENT_ID)
-            .and_then(|v| v.to_str().ok())
-            .map(|s| s.to_owned());
-
-        // Get the appropriate stream
-        let sse_stream: std::pin::Pin<Box<dyn Stream<Item = _> + Send>> =
-            if let Some(last_event_id) = last_event_id {
-                tracing::debug!(%session_id, %last_event_id, "Resuming stream from last event");
-                Box::pin(
-                    service
-                        .session_manager
-                        .resume(&session_id, last_event_id)
-                        .await
-                        .map_err(|e| InternalError::new(e, StatusCode::INTERNAL_SERVER_ERROR))?,
-                )
-            } else {
-                tracing::debug!(%session_id, "Creating standalone stream");
-                Box::pin(
-                    service
-                        .session_manager
-                        .create_standalone_stream(&session_id)
-                        .await
-                        .map_err(|e| InternalError::new(e, StatusCode::INTERNAL_SERVER_ERROR))?,
-                )
-            };
-
-        // Convert to SSE format and add keep-alive
-        let formatted_stream = sse_stream.map(|msg| {
-            Ok::<_, actix_web::Error>(format_sse_event(
-                msg.event_id.as_deref(),
-                msg.message.as_deref(),
-            ))
-        });
-        let sse_stream = wrap_with_sse_keepalive(formatted_stream, service.sse_keep_alive);
-
-        Ok(HttpResponse::Ok()
-            .content_type(EVENT_STREAM_MIME_TYPE)
-            .append_header((CACHE_CONTROL, "no-cache"))
-            .append_header((HEADER_X_ACCEL_BUFFERING, "no"))
-            .streaming(sse_stream))
-    }
-
-    async fn handle_post(
-        req: HttpRequest,
-        body: Bytes,
-        service: Data<AppData<S, M>>,
+    /// Bridges one actix-web request through rmcp's transport and back.
+    async fn handle(
+        request: HttpRequest,
+        payload: web::Payload,
+        data: web::Data<AppData<S, M>>,
     ) -> Result<HttpResponse> {
-        // Check accept header
-        let accept = req
-            .headers()
-            .get(header::ACCEPT)
-            .and_then(|h| h.to_str().ok());
+        let mut extensions = rmcp::model::Extensions::new();
+        if let Some(hook) = data.on_request.as_ref() {
+            hook(&request, &mut extensions);
+        }
+        let mut headers = convert_request_headers(request.headers());
+        apply_authorization_policy(&mut headers, &mut extensions);
 
-        if !accept.is_some_and(|header| {
-            header.contains(JSON_MIME_TYPE) && header.contains(EVENT_STREAM_MIME_TYPE)
-        }) {
-            return Ok(HttpResponse::NotAcceptable().body(
-                "Not Acceptable: Client must accept both application/json and text/event-stream",
-            ));
+        let mut builder = http::Request::builder()
+            .method(convert_method(request.method())?)
+            .uri(convert_uri(request.uri())?)
+            .version(convert_version(request.version()));
+        if let Some(builder_headers) = builder.headers_mut() {
+            *builder_headers = headers;
+        }
+        let mut bridged = builder
+            .body(bridge_payload(payload))
+            .map_err(|_| ErrorBadRequest("Bad Request: malformed request"))?;
+        bridged.extensions_mut().insert(extensions);
+
+        let response = data.inner.handle(bridged).await;
+        let (parts, body) = response.into_parts();
+
+        let status = actix_web::http::StatusCode::from_u16(parts.status.as_u16())
+            .unwrap_or(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR);
+        let mut response_builder = HttpResponse::build(status);
+        for (name, value) in convert_response_headers(&parts.headers) {
+            response_builder.append_header((name, value));
         }
 
-        // Check content type
-        let content_type = req
-            .headers()
-            .get(header::CONTENT_TYPE)
-            .and_then(|h| h.to_str().ok());
-
-        if !content_type.is_some_and(|header| header.starts_with(JSON_MIME_TYPE)) {
-            return Ok(HttpResponse::UnsupportedMediaType()
-                .body("Unsupported Media Type: Content-Type must be application/json"));
-        }
-
-        // Deserialize the message
-        let mut message: ClientJsonRpcMessage = serde_json::from_slice(&body)
-            .map_err(|e| InternalError::new(e, StatusCode::BAD_REQUEST))?;
-
-        tracing::debug!(?message, "POST request with message");
-
-        if service.stateful_mode {
-            // Check session id
-            let session_id = req
-                .headers()
-                .get(HEADER_SESSION_ID)
-                .and_then(|v| v.to_str().ok())
-                .filter(|s| !s.is_empty());
-
-            if let Some(session_id) = session_id {
-                let session_id = session_id.to_owned().into();
-                tracing::debug!(%session_id, "POST request with existing session");
-
-                let has_session = service
-                    .session_manager
-                    .has_session(&session_id)
-                    .await
-                    .map_err(|e| InternalError::new(e, StatusCode::INTERNAL_SERVER_ERROR))?;
-
-                if !has_session {
-                    tracing::warn!(%session_id, "Session not found");
-                    return Ok(HttpResponse::NotFound().body(SESSION_NOT_FOUND_BODY));
-                }
-
-                // Note: In actix-web we can't inject request parts like in tower,
-                // but session_id is already available through headers
-
-                match message {
-                    #[allow(unused_mut)]
-                    ClientJsonRpcMessage::Request(mut request_msg) => {
-                        // Call on_request hook to propagate extensions from HttpRequest
-                        if let Some(ref hook) = service.on_request {
-                            hook(&req, request_msg.request.extensions_mut());
-                        }
-
-                        // Extract and inject Authorization header for existing sessions.
-                        //
-                        // SECURITY: This transport forwards Authorization headers to MCP services.
-                        //
-                        // MCP-COMPLIANT USAGE: MCP services MUST validate these tokens as intended for themselves
-                        // and MUST NOT forward them to upstream APIs (per MCP specification).
-                        //
-                        // NON-COMPLIANT USAGE: Some implementations (e.g., rmcp-openapi-server) use these tokens
-                        // for upstream API authentication. This violates MCP specifications but may be necessary
-                        // for certain proxy architectures. Use with caution and ensure proper token audience validation.
-                        // See SECURITY.md for details.
-                        //
-                        // Supports OAuth 2.1 token rotation patterns by forwarding each request's
-                        // Authorization independently. This enables:
-                        // - Token rotation within sessions (security best practice)
-                        // - Token refresh when access tokens expire
-                        // - Scope changes for different operations within the same session
-                        //
-                        // The proxy does NOT cache or reuse tokens from session initialization.
-                        // Each request must provide its own valid Authorization header.
-                        #[cfg(feature = "authorization-token-passthrough")]
-                        if let Some(auth_value) = req.headers().get(header::AUTHORIZATION) {
-                            match auth_value.to_str() {
-                                Ok(auth_str)
-                                    if auth_str.starts_with("Bearer ") && auth_str.len() > 7 =>
-                                {
-                                    tracing::debug!(
-                                        "Forwarding Authorization header to MCP service for existing session. \
-                                         Note: MCP services must not pass this token to upstream APIs per MCP spec. \
-                                         See SECURITY.md for details."
-                                    );
-                                    request_msg
-                                        .request
-                                        .extensions_mut()
-                                        .insert(AuthorizationHeader(auth_str.to_string()));
-                                }
-                                Ok(auth_str) if auth_str == "Bearer" || auth_str == "Bearer " => {
-                                    tracing::debug!(
-                                        "Malformed Bearer token in existing session: missing token value"
-                                    );
-                                }
-                                Ok(auth_str) if !auth_str.starts_with("Bearer ") => {
-                                    let auth_type =
-                                        auth_str.split_whitespace().next().unwrap_or("unknown");
-                                    tracing::warn!(
-                                        "Non-Bearer authorization header ignored for existing session: {}",
-                                        auth_type
-                                    );
-                                }
-                                Err(e) => {
-                                    tracing::debug!(
-                                        "Invalid Authorization header encoding in existing session: {}",
-                                        e
-                                    );
-                                }
-                                _ => {}
-                            }
-                        }
-
-                        #[cfg(not(feature = "authorization-token-passthrough"))]
-                        if req.headers().get(header::AUTHORIZATION).is_some() {
-                            tracing::warn!(
-                                "Authorization header present but not forwarded. \
-                                 Enable 'authorization-token-passthrough' feature to forward tokens to MCP services. \
-                                 Note: Token passthrough violates MCP specifications. See SECURITY.md for details."
-                            );
-                        }
-
-                        let stream = service
-                            .session_manager
-                            .create_stream(&session_id, ClientJsonRpcMessage::Request(request_msg))
-                            .await
-                            .map_err(|e| {
-                                InternalError::new(e, StatusCode::INTERNAL_SERVER_ERROR)
-                            })?;
-
-                        // Convert to SSE format with keep-alive
-                        // Keep-alive prevents timeouts during long tool execution with no progress updates
-                        // Stream closes automatically after final response (keep-alive stops when stream ends)
-                        let formatted_stream = stream.map(|msg| {
-                            Ok::<_, actix_web::Error>(format_sse_event(
-                                msg.event_id.as_deref(),
-                                msg.message.as_deref(),
-                            ))
-                        });
-                        let sse_stream =
-                            wrap_with_sse_keepalive(formatted_stream, service.sse_keep_alive);
-
-                        Ok(HttpResponse::Ok()
-                            .content_type(EVENT_STREAM_MIME_TYPE)
-                            .append_header((CACHE_CONTROL, "no-cache"))
-                            .append_header((HEADER_X_ACCEL_BUFFERING, "no"))
-                            .streaming(sse_stream))
-                    }
-                    ClientJsonRpcMessage::Notification(_)
-                    | ClientJsonRpcMessage::Response(_)
-                    | ClientJsonRpcMessage::Error(_) => {
-                        // Handle notification
-                        service
-                            .session_manager
-                            .accept_message(&session_id, message)
-                            .await
-                            .map_err(|e| {
-                                InternalError::new(e, StatusCode::INTERNAL_SERVER_ERROR)
-                            })?;
-
-                        Ok(HttpResponse::Accepted().finish())
-                    }
-                }
-            } else {
-                // No session id in stateful mode. A non-initialize request without
-                // a session id is a 400 Bad Request per MCP 2025-03-26 Streamable
-                // HTTP Session Management. The check happens before create_session
-                // so a rejected request never leaves a stranded session behind.
-                let is_initialize_request = matches!(
-                    &message,
-                    ClientJsonRpcMessage::Request(request_msg)
-                        if matches!(request_msg.request, ClientRequest::InitializeRequest(_))
-                );
-
-                if !is_initialize_request {
-                    tracing::warn!("Mcp-Session-Id missing for non-initialize request");
-                    return Ok(HttpResponse::BadRequest().body(MISSING_SESSION_ID_BODY));
-                }
-
-                tracing::debug!("POST request without session, creating new session");
-
-                let (session_id, transport) = service
-                    .session_manager
-                    .create_session()
-                    .await
-                    .map_err(|e| InternalError::new(e, StatusCode::INTERNAL_SERVER_ERROR))?;
-
-                tracing::info!(%session_id, "Created new session");
-
-                if let ClientJsonRpcMessage::Request(request_msg) = &mut message {
-                    // Call on_request hook to propagate extensions from HttpRequest
-                    if let Some(ref hook) = service.on_request {
-                        hook(&req, request_msg.request.extensions_mut());
-                    }
-
-                    // Extract and inject Authorization header if present
-                    //
-                    // SECURITY: This transport forwards Authorization headers to MCP services.
-                    //
-                    // MCP-COMPLIANT USAGE: MCP services MUST validate these tokens as intended for themselves
-                    // and MUST NOT forward them to upstream APIs (per MCP specification).
-                    //
-                    // NON-COMPLIANT USAGE: Some implementations (e.g., rmcp-openapi-server) use these tokens
-                    // for upstream API authentication. This violates MCP specifications but may be necessary
-                    // for certain proxy architectures. Use with caution and ensure proper token audience validation.
-                    // See SECURITY.md for details.
-                    #[cfg(feature = "authorization-token-passthrough")]
-                    if let Some(auth_value) = req.headers().get(header::AUTHORIZATION) {
-                        match auth_value.to_str() {
-                            Ok(auth_str)
-                                if auth_str.starts_with("Bearer ") && auth_str.len() > 7 =>
-                            {
-                                tracing::debug!(
-                                    "Forwarding Authorization header to MCP service for new session. \
-                                     Note: MCP services must not pass this token to upstream APIs per MCP spec. \
-                                     See SECURITY.md for details."
-                                );
-                                request_msg
-                                    .request
-                                    .extensions_mut()
-                                    .insert(AuthorizationHeader(auth_str.to_string()));
-                            }
-                            Ok(auth_str) if auth_str == "Bearer" || auth_str == "Bearer " => {
-                                tracing::debug!(
-                                    "Malformed Bearer token in new session: missing token value"
-                                );
-                            }
-                            Ok(auth_str) if !auth_str.starts_with("Bearer ") => {
-                                let auth_type =
-                                    auth_str.split_whitespace().next().unwrap_or("unknown");
-                                tracing::warn!(
-                                    "Non-Bearer authorization header ignored for new session: {}",
-                                    auth_type
-                                );
-                            }
-                            Err(e) => {
-                                tracing::debug!(
-                                    "Invalid Authorization header encoding in new session: {}",
-                                    e
-                                );
-                            }
-                            _ => {}
-                        }
-                    }
-
-                    #[cfg(not(feature = "authorization-token-passthrough"))]
-                    if req.headers().get(header::AUTHORIZATION).is_some() {
-                        tracing::warn!(
-                            "Authorization header present but not forwarded for new session. \
-                             Enable 'authorization-token-passthrough' feature to forward tokens to MCP services. \
-                             Note: Token passthrough violates MCP specifications. See SECURITY.md for details."
-                        );
-                    }
-                }
-
-                let service_instance = service
-                    .get_service()
-                    .map_err(|e| InternalError::new(e, StatusCode::INTERNAL_SERVER_ERROR))?;
-
-                // Spawn a task to serve the session
-                tokio::spawn({
-                    let session_manager = service.session_manager.clone();
-                    let session_id = session_id.clone();
-                    async move {
-                        let service = serve_server::<S, M::Transport, _, TransportAdapterIdentity>(
-                            service_instance,
-                            transport,
-                        )
-                        .await;
-                        match service {
-                            Ok(service) => {
-                                let _ = service.waiting().await;
-                            }
-                            Err(e) => {
-                                tracing::error!("Failed to create service: {e}");
-                            }
-                        }
-                        let _ = session_manager
-                            .close_session(&session_id)
-                            .await
-                            .inspect_err(|e| {
-                                tracing::error!("Failed to close session {session_id}: {e}");
-                            });
-                    }
-                });
-
-                // Get initialize response
-                let response = service
-                    .session_manager
-                    .initialize_session(&session_id, message)
-                    .await
-                    .map_err(|e| InternalError::new(e, StatusCode::INTERNAL_SERVER_ERROR))?;
-
-                tracing::debug!(?response, "Initialization complete, creating SSE stream");
-
-                // Return SSE stream with initialization response (no keep-alive)
-                // Per MCP spec: "After the JSON-RPC response has been sent, the server SHOULD close the SSE stream"
-                // Initialization completes with a single response, so no keep-alive needed
-                let sse_stream = async_stream::stream! {
-                    yield Ok::<_, actix_web::Error>(Bytes::from(format!(
-                        "data: {}\n\n",
-                        serde_json::to_string(&response).unwrap_or_else(|_| "{}".to_string())
-                    )));
-                };
-                tracing::debug!("Created initialization response stream (closes after response)");
-
-                tracing::info!(
-                    ?session_id,
-                    "Returning SSE streaming response for initialization"
-                );
-                Ok(HttpResponse::Ok()
-                    .content_type(EVENT_STREAM_MIME_TYPE)
-                    .append_header((CACHE_CONTROL, "no-cache"))
-                    .append_header((HEADER_X_ACCEL_BUFFERING, "no"))
-                    .append_header((HEADER_SESSION_ID, session_id.as_ref()))
-                    .streaming(sse_stream))
-            }
-        } else {
-            // Stateless mode: MCP 2025-03-26 Streamable HTTP Session Management
-            // scopes its session-id rules to "servers that require a session ID",
-            // which a stateless deployment does not. Any Mcp-Session-Id value is
-            // accepted, logged for observability, and otherwise ignored. The
-            // Python and TypeScript reference SDKs make the same interpretation.
-            tracing::debug!("POST request in stateless mode");
-            if req
-                .headers()
-                .get(HEADER_SESSION_ID)
-                .and_then(|v| v.to_str().ok())
-                .filter(|s| !s.is_empty())
-                .is_some()
-            {
-                tracing::debug!("Mcp-Session-Id header ignored in stateless mode");
-            }
-
-            match message {
-                #[allow(unused_mut)]
-                ClientJsonRpcMessage::Request(mut request) => {
-                    tracing::debug!(?request, "Processing request in stateless mode");
-
-                    // Call on_request hook to propagate extensions from HttpRequest
-                    if let Some(ref hook) = service.on_request {
-                        hook(&req, request.request.extensions_mut());
-                    }
-
-                    // Extract and inject Authorization header if present
-                    //
-                    // SECURITY: This transport forwards Authorization headers to MCP services.
-                    //
-                    // MCP-COMPLIANT USAGE: MCP services MUST validate these tokens as intended for themselves
-                    // and MUST NOT forward them to upstream APIs (per MCP specification).
-                    //
-                    // NON-COMPLIANT USAGE: Some implementations (e.g., rmcp-openapi-server) use these tokens
-                    // for upstream API authentication. This violates MCP specifications but may be necessary
-                    // for certain proxy architectures. Use with caution and ensure proper token audience validation.
-                    // See SECURITY.md for details.
-                    #[cfg(feature = "authorization-token-passthrough")]
-                    if let Some(auth_value) = req.headers().get(header::AUTHORIZATION) {
-                        match auth_value.to_str() {
-                            Ok(auth_str)
-                                if auth_str.starts_with("Bearer ") && auth_str.len() > 7 =>
-                            {
-                                tracing::debug!(
-                                    "Forwarding Authorization header to MCP service in stateless mode. \
-                                     Note: MCP services must not pass this token to upstream APIs per MCP spec. \
-                                     See SECURITY.md for details."
-                                );
-                                request
-                                    .request
-                                    .extensions_mut()
-                                    .insert(AuthorizationHeader(auth_str.to_string()));
-                            }
-                            Ok(auth_str) if auth_str == "Bearer" || auth_str == "Bearer " => {
-                                tracing::debug!(
-                                    "Malformed Bearer token in stateless mode: missing token value"
-                                );
-                            }
-                            Ok(auth_str) if !auth_str.starts_with("Bearer ") => {
-                                let auth_type =
-                                    auth_str.split_whitespace().next().unwrap_or("unknown");
-                                tracing::warn!(
-                                    "Non-Bearer authorization header ignored in stateless mode: {}",
-                                    auth_type
-                                );
-                            }
-                            Err(e) => {
-                                tracing::debug!(
-                                    "Invalid Authorization header encoding in stateless mode: {}",
-                                    e
-                                );
-                            }
-                            _ => {}
-                        }
-                    }
-
-                    #[cfg(not(feature = "authorization-token-passthrough"))]
-                    if req.headers().get(header::AUTHORIZATION).is_some() {
-                        tracing::warn!(
-                            "Authorization header present but not forwarded in stateless mode. \
-                             Enable 'authorization-token-passthrough' feature to forward tokens to MCP services. \
-                             Note: Token passthrough violates MCP specifications. See SECURITY.md for details."
-                        );
-                    }
-
-                    // In stateless mode, handle the request directly
-                    let service_instance = service
-                        .get_service()
-                        .map_err(|e| InternalError::new(e, StatusCode::INTERNAL_SERVER_ERROR))?;
-
-                    let (transport, receiver) =
-                        OneshotTransport::<RoleServer>::new(ClientJsonRpcMessage::Request(request));
-                    let service_handle = serve_directly(service_instance, transport, None);
-
-                    tokio::spawn(async move {
-                        // Let the service process the request
-                        let _ = service_handle.waiting().await;
-                    });
-
-                    // Convert receiver stream to SSE format with keep-alive
-                    // Keep-alive prevents timeouts during long tool execution with no progress updates
-                    // Stream closes automatically after final response (keep-alive stops when stream ends)
-                    let formatted_stream = ReceiverStream::new(receiver).map(|message| {
-                        tracing::info!(?message);
-                        let data =
-                            serde_json::to_string(&message).unwrap_or_else(|_| "{}".to_string());
-                        Ok::<_, actix_web::Error>(Bytes::from(format!("data: {data}\n\n")))
-                    });
-                    let sse_stream =
-                        wrap_with_sse_keepalive(formatted_stream, service.sse_keep_alive);
-
-                    Ok(HttpResponse::Ok()
-                        .content_type(EVENT_STREAM_MIME_TYPE)
-                        .append_header((CACHE_CONTROL, "no-cache"))
-                        .append_header((HEADER_X_ACCEL_BUFFERING, "no"))
-                        .streaming(sse_stream))
-                }
-                _ => Ok(HttpResponse::UnprocessableEntity().body("Unexpected message type")),
-            }
-        }
-    }
-
-    async fn handle_delete(req: HttpRequest, service: Data<AppData<S, M>>) -> Result<HttpResponse> {
-        // Check session id
-        let session_id = req
-            .headers()
-            .get(HEADER_SESSION_ID)
-            .and_then(|v| v.to_str().ok())
-            .filter(|s| !s.is_empty())
-            .map(|s| s.to_owned().into());
-
-        let Some(session_id) = session_id else {
-            return Ok(HttpResponse::BadRequest().body(MISSING_SESSION_ID_BODY));
-        };
-
-        tracing::debug!(%session_id, "DELETE request to close session");
-
-        let has_session = service
-            .session_manager
-            .has_session(&session_id)
-            .await
-            .map_err(|e| InternalError::new(e, StatusCode::INTERNAL_SERVER_ERROR))?;
-
-        if !has_session {
-            tracing::warn!(%session_id, "Session not found");
-            return Ok(HttpResponse::NotFound().body(SESSION_NOT_FOUND_BODY));
-        }
-
-        // Close session
-        service
-            .session_manager
-            .close_session(&session_id)
-            .await
-            .map_err(|e| InternalError::new(e, StatusCode::INTERNAL_SERVER_ERROR))?;
-
-        tracing::info!(%session_id, "Session closed");
-
-        Ok(HttpResponse::NoContent().finish())
+        Ok(response_builder.streaming(BodyDataStream::new(body)))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use rmcp::model::{
-        EmptyResult, JsonRpcResponse, JsonRpcVersion2_0, RequestId, ServerJsonRpcMessage,
-        ServerResult,
-    };
+    use super::*;
 
-    use super::format_sse_event;
+    #[test]
+    fn converts_method_across_http_versions() {
+        let converted = convert_method(&actix_web::http::Method::GET).expect("valid method");
+        assert_eq!(converted, http::Method::GET);
 
-    fn dummy_message() -> ServerJsonRpcMessage {
-        ServerJsonRpcMessage::Response(JsonRpcResponse {
-            jsonrpc: JsonRpcVersion2_0,
-            id: RequestId::Number(1),
-            result: ServerResult::EmptyResult(EmptyResult {}),
-        })
+        let converted = convert_method(&actix_web::http::Method::POST).expect("valid method");
+        assert_eq!(converted, http::Method::POST);
+
+        let converted = convert_method(&actix_web::http::Method::DELETE).expect("valid method");
+        assert_eq!(converted, http::Method::DELETE);
     }
 
-    /// Regression test for the SEP-1699 priming-event serialization bug.
+    #[test]
+    fn converts_uri_preserving_path_and_query() {
+        let uri: actix_web::http::Uri = "/api/v1/mcp?x=1".parse().expect("valid uri");
+        let converted = convert_uri(&uri).expect("valid uri");
+        assert_eq!(converted.path(), "/api/v1/mcp");
+        assert_eq!(converted.query(), Some("x=1"));
+    }
+
+    #[test]
+    fn converts_version_variants() {
+        assert_eq!(
+            convert_version(actix_web::http::Version::HTTP_11),
+            http::Version::HTTP_11
+        );
+        assert_eq!(
+            convert_version(actix_web::http::Version::HTTP_2),
+            http::Version::HTTP_2
+        );
+    }
+
+    #[test]
+    fn converts_request_headers_including_repeated_values() {
+        let mut headers = actix_web::http::header::HeaderMap::new();
+        headers.append(
+            actix_web::http::header::ACCEPT,
+            actix_web::http::header::HeaderValue::from_static("application/json"),
+        );
+        headers.append(
+            actix_web::http::header::ACCEPT,
+            actix_web::http::header::HeaderValue::from_static("text/event-stream"),
+        );
+        headers.insert(
+            actix_web::http::header::HOST,
+            actix_web::http::header::HeaderValue::from_static("127.0.0.1:8080"),
+        );
+
+        let converted = convert_request_headers(&headers);
+
+        let accepts: Vec<&str> = converted
+            .get_all(http::header::ACCEPT)
+            .iter()
+            .map(|value| value.to_str().expect("utf-8"))
+            .collect();
+        assert_eq!(accepts, vec!["application/json", "text/event-stream"]);
+        assert_eq!(
+            converted.get(http::header::HOST).expect("host"),
+            "127.0.0.1:8080"
+        );
+    }
+
+    #[test]
+    fn converts_response_headers_including_repeated_values() {
+        let mut headers = http::HeaderMap::new();
+        headers.append(
+            http::header::SET_COOKIE,
+            http::HeaderValue::from_static("first=1"),
+        );
+        headers.append(
+            http::header::SET_COOKIE,
+            http::HeaderValue::from_static("second=2"),
+        );
+        headers.insert(
+            http::header::CONTENT_TYPE,
+            http::HeaderValue::from_static("text/event-stream"),
+        );
+
+        let converted = convert_response_headers(&headers);
+
+        let cookies: Vec<&str> = converted
+            .get_all(actix_web::http::header::SET_COOKIE)
+            .map(|value| value.to_str().expect("utf-8"))
+            .collect();
+        assert_eq!(cookies, vec!["first=1", "second=2"]);
+        assert_eq!(
+            converted
+                .get(actix_web::http::header::CONTENT_TYPE)
+                .expect("content type"),
+            "text/event-stream"
+        );
+    }
+
+    /// A request header name actix admits but rmcp cannot represent is skipped, and
+    /// the rest of the map still converts.
     ///
-    /// Prior to the fix, `serde_json::to_string(&msg.message)` was applied to
-    /// `Option<Arc<ServerJsonRpcMessage>>` directly, producing the literal
-    /// `null` on the wire when the message was `None`. SEP-1699 mandates an
-    /// empty `data` field instead.
+    /// `http` 0.2 accepts a quotation mark in a header name where `http` 1.x does not,
+    /// so this is the one input on which the two crates genuinely disagree.
     #[test]
-    fn priming_event_emits_empty_data_not_null() {
-        let bytes = format_sse_event(Some("0/0"), None);
-        let wire = std::str::from_utf8(&bytes).expect("utf-8");
-
-        assert_eq!(wire, "id: 0/0\ndata:\n\n");
-        assert!(
-            !wire.contains("data: null"),
-            "priming event must not serialize the message as JSON null, got: {wire:?}"
+    fn skips_request_header_names_rmcp_cannot_represent() {
+        let unrepresentable = actix_web::http::header::HeaderName::from_bytes(b"x\"y")
+            .expect("actix-web's http 0.2 admits a quotation mark in a header name");
+        let mut headers = actix_web::http::header::HeaderMap::new();
+        headers.insert(
+            unrepresentable,
+            actix_web::http::header::HeaderValue::from_static("dropped"),
         );
-    }
+        headers.insert(
+            actix_web::http::header::HOST,
+            actix_web::http::header::HeaderValue::from_static("127.0.0.1:8080"),
+        );
 
-    #[test]
-    fn message_event_serializes_payload_as_json() {
-        let message = dummy_message();
-        let bytes = format_sse_event(Some("1/0"), Some(&message));
-        let wire = std::str::from_utf8(&bytes).expect("utf-8");
+        let converted = convert_request_headers(&headers);
 
         assert_eq!(
-            wire,
-            "id: 1/0\ndata: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}\n\n"
+            converted.len(),
+            1,
+            "the unrepresentable name must be skipped, not carried over or renamed"
         );
-    }
-
-    #[test]
-    fn message_event_without_event_id_omits_id_line() {
-        let message = dummy_message();
-        let bytes = format_sse_event(None, Some(&message));
-        let wire = std::str::from_utf8(&bytes).expect("utf-8");
-
         assert_eq!(
-            wire,
-            "data: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}\n\n"
+            converted.get(http::header::HOST).expect("host"),
+            "127.0.0.1:8080",
+            "skipping one header must not discard the rest of the map"
         );
     }
 }

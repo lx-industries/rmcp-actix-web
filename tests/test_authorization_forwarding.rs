@@ -7,6 +7,8 @@ mod common;
 
 use actix_web::{App, HttpServer};
 use common::headers_test_service::HeadersTestService;
+use common::sse::find_tool_json_in_sse_stream;
+#[cfg(feature = "authorization-token-passthrough")]
 use futures::StreamExt;
 use reqwest::Response;
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
@@ -15,41 +17,102 @@ use serde_json::{Value, json};
 use std::sync::Arc;
 use std::time::Duration;
 
-/// Helper function to extract authorization from SSE response
+/// Extracts the `authorization` field of the tool's JSON report from an SSE response.
 async fn extract_auth_from_sse_response(response: Response) -> Option<String> {
-    let mut body = Vec::new();
-    let mut stream = response.bytes_stream();
+    let report = find_tool_json_in_sse_stream(response).await?;
+    report.get("authorization")?.as_str().map(String::from)
+}
 
-    // Request-wise SSE streams begin with a priming event (SEP-1699) whose
-    // `data:` line is empty, so the first `\n\n` terminator is not the real
-    // response. Keep reading until a `data:` line parses as the expected
-    // payload, or until the byte cap / timeout fires.
-    tokio::time::timeout(Duration::from_secs(2), async {
-        loop {
-            let body_str = String::from_utf8_lossy(&body);
-            for line in body_str.lines() {
-                if let Some(json_str) = line.strip_prefix("data: ")
-                    && let Ok(response_json) = serde_json::from_str::<Value>(json_str)
-                    && let Some(text_value) = response_json.pointer("/result/content/0/text")
-                    && let Some(text_str) = text_value.as_str()
-                    && let Ok(auth_response) = serde_json::from_str::<Value>(text_str)
-                    && let Some(auth) = auth_response.get("authorization")
-                {
-                    return auth.as_str().map(String::from);
-                }
-            }
-            if body.len() > 4096 {
-                return None;
-            }
-            match stream.next().await {
-                Some(Ok(bytes)) => body.extend_from_slice(&bytes),
-                _ => return None,
-            }
-        }
+/// Sends `initialize` then `get_auth_surfaces` with the given Authorization header,
+/// returning the tool's JSON report.
+async fn auth_surfaces_for(authorization: &str) -> Value {
+    let service = StreamableHttpService::builder()
+        .service_factory(Arc::new(|| Ok(HeadersTestService::new())))
+        .session_manager(Arc::new(LocalSessionManager::default()))
+        .stateful_mode(false)
+        .build();
+
+    let server = HttpServer::new(move || {
+        App::new().service(actix_web::web::scope("/mcp").service(service.clone().scope()))
     })
-    .await
-    .ok()
-    .flatten()
+    .bind("127.0.0.1:0")
+    .expect("Failed to bind server");
+
+    let addr = *server.addrs().first().unwrap();
+    let server_handle = server.run();
+    let server_task = tokio::spawn(async move {
+        let _ = server_handle.await;
+    });
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let client = reqwest::Client::new();
+    let url = format!("http://{}/mcp", addr);
+
+    let init = client
+        .post(&url)
+        .header("Authorization", authorization)
+        .header("Accept", "application/json, text/event-stream")
+        .header("Content-Type", "application/json")
+        .json(&json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2025-03-26",
+                "capabilities": {},
+                "clientInfo": {"name": "test-client", "version": "1.0.0"}
+            }
+        }))
+        .send()
+        .await
+        .expect("initialize");
+    assert_eq!(init.status(), 200);
+
+    let call = client
+        .post(&url)
+        .header("Authorization", authorization)
+        .header("Accept", "application/json, text/event-stream")
+        .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2025-03-26")
+        .json(&json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
+            "params": {"name": "get_auth_surfaces", "arguments": {}}
+        }))
+        .send()
+        .await
+        .expect("tools/call");
+
+    let report = find_tool_json_in_sse_stream(call)
+        .await
+        .expect("tool returned a report");
+    server_task.abort();
+    report
+}
+
+#[cfg(not(feature = "authorization-token-passthrough"))]
+#[actix_web::test]
+async fn authorization_is_stripped_when_passthrough_is_disabled() {
+    let report = auth_surfaces_for("Bearer test-token-abc123").await;
+    assert_eq!(
+        report["extension"],
+        Value::Null,
+        "AuthorizationHeader must not reach handlers when the feature is off"
+    );
+    assert_eq!(
+        report["raw_header"],
+        Value::Null,
+        "the raw Authorization header must not reach handlers via Parts.headers either"
+    );
+}
+
+#[cfg(feature = "authorization-token-passthrough")]
+#[actix_web::test]
+async fn authorization_is_forwarded_when_passthrough_is_enabled() {
+    let report = auth_surfaces_for("Bearer test-token-abc123").await;
+    assert_eq!(report["extension"], "Bearer test-token-abc123");
+    assert_eq!(report["raw_header"], "Bearer test-token-abc123");
 }
 
 #[cfg(feature = "authorization-token-passthrough")]
@@ -271,7 +334,6 @@ async fn test_authorization_forwarded_in_streamable_http_stateful() {
     assert_eq!(initialized_response.status(), 202); // Notifications return 202 Accepted
 
     // Test that subsequent requests to the existing session also forward Authorization
-    // This verifies the fix for bug #26
     let tool_request = json!({
         "jsonrpc": "2.0",
         "method": "tools/call",
@@ -300,7 +362,7 @@ async fn test_authorization_forwarded_in_streamable_http_stateful() {
     assert_eq!(
         auth,
         Some("Bearer subsequent-token".to_string()),
-        "Bug #26: Authorization header should be forwarded for existing sessions"
+        "Authorization header should be forwarded for existing sessions"
     );
 
     // Test token rotation: verify each request can have its own auth token

@@ -12,7 +12,7 @@
 //! - Complex interaction patterns
 //! - Higher performance for bidirectional communication
 //!
-//! See [`StreamableHttpService`][crate::StreamableHttpService] for the main implementation.
+//! See [`StreamableHttpService`] for the main implementation.
 //!
 //! ## Framework-Level Composition
 //!
@@ -57,7 +57,8 @@
 //!
 //! Use the `on_request` hook to propagate typed data from actix-web middleware
 //! to MCP request handlers. This is useful for passing authentication claims,
-//! request metadata, or other context from HTTP middleware to your MCP service:
+//! request metadata, or other context from HTTP middleware to your MCP service.
+//! The hook receives the actix-web request and an [`Extensions`] map to write into:
 //!
 //! ```rust,ignore
 //! use rmcp_actix_web::transport::StreamableHttpService;
@@ -79,8 +80,26 @@
 //!     .build();
 //! ```
 //!
-//! The propagated extensions are then accessible in your MCP service handlers
-//! via `RequestContext::extensions`.
+//! rmcp's transport nests the hook's `Extensions` inside `http::request::Parts`
+//! before handing them to your MCP service, so read them back through
+//! [`on_request_extensions`] rather than `RequestContext::extensions` directly:
+//!
+//! ```rust,ignore
+//! use rmcp_actix_web::transport::on_request_extensions;
+//!
+//! async fn handle_request(
+//!     &self,
+//!     request: SomeRequest,
+//!     context: RequestContext<RoleServer>,
+//! ) -> Result<Response, McpError> {
+//!     if let Some(claims) = on_request_extensions(&context.extensions)
+//!         .and_then(|extensions| extensions.get::<JwtClaims>())
+//!     {
+//!         // ...
+//!     }
+//!     // ...
+//! }
+//! ```
 //!
 //! ## Protocol Compatibility
 //!
@@ -91,18 +110,54 @@
 //! [mcp]: https://modelcontextprotocol.io/
 //! [rmcp]: https://docs.rs/rmcp/
 
-/// Streamable HTTP transport implementation.
-///
-/// Provides bidirectional communication with session management.
 #[cfg(feature = "transport-streamable-http")]
 pub mod streamable_http_server;
+
+/// The hand-written actix-web transport, retained behind the `legacy-transport` feature.
+///
+/// It does not support MCP `2026-07-28`: its sessionless path serves every peer the
+/// legacy wire shape.
+#[cfg(feature = "legacy-transport")]
+pub mod legacy_streamable_http_server;
+
 #[cfg(feature = "transport-streamable-http")]
 pub use streamable_http_server::{
-    OnRequestHook, StreamableHttpServerConfig, StreamableHttpService, StreamableHttpServiceBuilder,
+    OnRequestHook, StreamableHttpService, StreamableHttpServiceBuilder,
 };
 
 /// Re-export of rmcp's Extensions type for use with on_request hook.
 pub use rmcp::model::Extensions;
+
+/// Retrieves the extensions written by the `on_request` hook from a handler's request context.
+///
+/// rmcp's transport inserts the whole [`http::request::Parts`] into the MCP message
+/// extensions, so values written by the hook are reached two hops in:
+/// `RequestContext::extensions` → [`http::request::Parts::extensions`] → the hook's
+/// [`Extensions`]. This function performs both hops.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use rmcp_actix_web::transport::on_request_extensions;
+///
+/// async fn handle_request(
+///     &self,
+///     request: SomeRequest,
+///     context: RequestContext<RoleServer>,
+/// ) -> Result<Response, McpError> {
+///     if let Some(claims) = on_request_extensions(&context.extensions)
+///         .and_then(|extensions| extensions.get::<MyClaims>())
+///     {
+///         // ...
+///     }
+///     // ...
+/// }
+/// ```
+pub fn on_request_extensions(extensions: &Extensions) -> Option<&Extensions> {
+    extensions
+        .get::<http::request::Parts>()
+        .and_then(|parts| parts.extensions.get::<Extensions>())
+}
 
 /// Authorization header value for MCP proxy scenarios.
 ///
@@ -110,11 +165,16 @@ pub use rmcp::model::Extensions;
 /// to MCP services via RequestContext extensions. This enables MCP services
 /// to act as proxies, forwarding authentication tokens to backend APIs.
 ///
+/// It is only inserted when the `authorization-token-passthrough` feature is
+/// enabled; otherwise the transport strips the header before handlers see it.
+/// Reach it through [`on_request_extensions`], which performs the two hops
+/// rmcp's transport nests it behind.
+///
 /// # Example
 ///
 /// ```rust,ignore
 /// // In an MCP service handler:
-/// use rmcp_actix_web::transport::AuthorizationHeader;
+/// use rmcp_actix_web::transport::{AuthorizationHeader, on_request_extensions};
 ///
 /// async fn handle_request(
 ///     &self,
@@ -122,7 +182,9 @@ pub use rmcp::model::Extensions;
 ///     context: RequestContext<RoleServer>,
 /// ) -> Result<Response, McpError> {
 ///     // Extract the Authorization header if present
-///     if let Some(auth) = context.extensions.get::<AuthorizationHeader>() {
+///     if let Some(auth) = on_request_extensions(&context.extensions)
+///         .and_then(|extensions| extensions.get::<AuthorizationHeader>())
+///     {
 ///         // Use auth.0 to access the header value (e.g., "Bearer token123")
 ///         let token = &auth.0;
 ///         // Forward to backend API...

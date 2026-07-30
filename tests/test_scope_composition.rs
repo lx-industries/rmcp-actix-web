@@ -11,25 +11,24 @@ use rmcp_actix_web::transport::StreamableHttpService;
 
 mod common;
 use common::calculator::Calculator;
+use common::sse::find_in_sse_body;
 
-#[actix_web::test]
-async fn test_streamable_http_service_scope_composition() {
-    // Test that StreamableHttpService can be mounted at a custom path using builder pattern
-    let http_service = StreamableHttpService::builder()
+/// Builds a stateful service for mounting under a scope.
+fn service() -> StreamableHttpService<Calculator> {
+    StreamableHttpService::builder()
         .service_factory(Arc::new(|| Ok(Calculator::new())))
         .session_manager(Arc::new(LocalSessionManager::default()))
         .stateful_mode(true)
-        .build();
+        .build()
+}
 
-    // Create app with scope mounted at custom path
-    let app = test::init_service(
-        App::new().service(web::scope("/api/v2/mcp").service(http_service.scope())),
-    )
-    .await;
-
-    // Test POST request to the custom path (should require proper headers)
-    let req = test::TestRequest::post()
-        .uri("/api/v2/mcp/")
+/// Builds an `initialize` request addressed to `uri`.
+fn initialize_request(uri: &str) -> test::TestRequest {
+    test::TestRequest::post()
+        .uri(uri)
+        // The in-process test client sends no Host header, which the transport's
+        // DNS-rebinding defence rejects outright.
+        .insert_header(("host", "localhost"))
         .insert_header(("content-type", "application/json"))
         .insert_header(("accept", "application/json, text/event-stream"))
         .set_json(serde_json::json!({
@@ -45,8 +44,58 @@ async fn test_streamable_http_service_scope_composition() {
                 }
             }
         }))
-        .to_request();
+}
 
-    let resp = test::call_service(&app, req).await;
-    assert!(resp.status().is_success() || resp.status().is_client_error()); // Either works or needs session
+/// Asserts the response is a completed `initialize` handshake, not merely a
+/// route that resolved to some status.
+async fn assert_initialized(response: actix_web::dev::ServiceResponse) {
+    assert_eq!(response.status(), actix_web::http::StatusCode::OK);
+    assert!(
+        response.headers().contains_key("mcp-session-id"),
+        "a stateful initialize must answer with a session id"
+    );
+
+    let body = test::read_body(response).await;
+    let body = String::from_utf8(body.to_vec()).expect("utf-8 body");
+    let payload = find_in_sse_body(&body, |value| {
+        value
+            .pointer("/result/protocolVersion")
+            .is_some()
+            .then(|| value.clone())
+    })
+    .unwrap_or_else(|| panic!("expected an initialize result, got: {body:?}"));
+
+    assert_eq!(payload["id"], 1, "id must echo the initialize request");
+}
+
+/// The service is mounted under a single scope, so it sees one level of actix
+/// path stripping.
+#[actix_web::test]
+async fn test_streamable_http_service_scope_composition() {
+    let app = test::init_service(
+        App::new().service(web::scope("/api/v2/mcp").service(service().scope())),
+    )
+    .await;
+
+    let response = test::call_service(&app, initialize_request("/api/v2/mcp/").to_request()).await;
+
+    assert_initialized(response).await;
+}
+
+/// The service is mounted under scopes nested inside one another, so each
+/// enclosing scope strips its own prefix before the transport sees the request.
+/// A path-stripping bug that only appears at the second level cannot hide here.
+#[actix_web::test]
+async fn test_streamable_http_service_nested_scope_composition() {
+    let app = test::init_service(
+        App::new().service(
+            web::scope("/api")
+                .service(web::scope("/v2").service(web::scope("/mcp").service(service().scope()))),
+        ),
+    )
+    .await;
+
+    let response = test::call_service(&app, initialize_request("/api/v2/mcp/").to_request()).await;
+
+    assert_initialized(response).await;
 }

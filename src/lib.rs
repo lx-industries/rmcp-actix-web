@@ -13,7 +13,7 @@
 //!
 //! ## Features
 //!
-//! - **[Streamable HTTP Transport][StreamableHttpService]**: Bidirectional communication with session management
+//! - **[Streamable HTTP Transport][transport::StreamableHttpService]**: Bidirectional communication with session management
 //! - **Full MCP Compatibility**: Implements the complete MCP specification
 //! - **Drop-in Replacement**: Same service implementations work with either Axum or actix-web transports
 //! - **Production Ready**: Built on battle-tested actix-web framework
@@ -21,6 +21,13 @@
 //! ## Quick Start
 //!
 //! ### Streamable HTTP Server Example
+//!
+//! The example below is reachable on loopback only. The transport rejects any request
+//! whose `Host` header is not `localhost`, `127.0.0.1`, or `::1` with `403 Forbidden`,
+//! and any request carrying no `Host` header at all with `400 Bad Request`. A deployment
+//! reachable under its own hostname must name it via
+//! [`allowed_hosts`][transport::StreamableHttpServiceBuilder::allowed_hosts], otherwise
+//! every request is rejected.
 //!
 //! ```rust,no_run
 //! use rmcp_actix_web::transport::{StreamableHttpService, AuthorizationHeader};
@@ -118,5 +125,18 @@
 //! ## Feature Flags
 //!
 //! - `transport-streamable-http` (default): Enables StreamableHttp transport
+//! - `legacy-transport`: Exposes the hand-written transport at
+//!   [`transport::legacy_streamable_http_server`]. It predates delegation to rmcp and
+//!   does not support MCP `2026-07-28`.
+//! - `authorization-token-passthrough`: Forwards the `Authorization` header to the MCP
+//!   service. Violates the MCP specification; see SECURITY.md.
+//!
+//! ## Upgrading
+//!
+//! The Streamable HTTP transport delegates to rmcp, so rmcp's responses are the wire
+//! contract. The change most likely to affect an existing deployment is the loopback-only
+//! `Host` default described under [Quick Start](#quick-start). The README's
+//! "Upgrading to 0.13" section lists that and the session-handling status codes that
+//! moved with it.
 
 pub mod transport;

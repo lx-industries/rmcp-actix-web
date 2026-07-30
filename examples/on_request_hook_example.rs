@@ -39,7 +39,7 @@ use rmcp::{
     ErrorData as McpError, RoleServer, ServerHandler, handler::server::router::tool::ToolRouter,
     model::*, service::RequestContext, tool, tool_handler, tool_router,
 };
-use rmcp_actix_web::transport::StreamableHttpService;
+use rmcp_actix_web::transport::{StreamableHttpService, on_request_extensions};
 use serde_json::json;
 use std::sync::Arc;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -148,7 +148,9 @@ impl UserAwareService {
         &self,
         context: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, McpError> {
-        if let Some(claims) = context.extensions.get::<UserClaims>() {
+        if let Some(claims) = on_request_extensions(&context.extensions)
+            .and_then(|extensions| extensions.get::<UserClaims>())
+        {
             let info = json!({
                 "user_id": claims.user_id,
                 "role": claims.role,
@@ -174,7 +176,9 @@ impl UserAwareService {
         &self,
         context: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, McpError> {
-        if let Some(claims) = context.extensions.get::<UserClaims>() {
+        if let Some(claims) = on_request_extensions(&context.extensions)
+            .and_then(|extensions| extensions.get::<UserClaims>())
+        {
             if claims.role == "admin" {
                 Ok(CallToolResult::success(vec![ContentBlock::text(format!(
                     "Admin action executed by user: {}",

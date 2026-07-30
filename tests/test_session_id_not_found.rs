@@ -1,13 +1,13 @@
 //! Integration tests for `Mcp-Session-Id` handling.
 //!
-//! Per the MCP 2025-03-26 Streamable HTTP Session Management spec, when a
-//! request carries an `Mcp-Session-Id` header whose value the server does not
-//! recognize, the server must respond with `404 Not Found` so the client can
-//! recover by starting a new session via an `InitializeRequest` without a
-//! session id. When the header is missing or empty on a request that requires
-//! a session id, the server must respond with `400 Bad Request`. In stateless
-//! mode the header is ignored. These tests pin that contract for `POST`,
-//! `GET`, and `DELETE`.
+//! The transport delegates every session decision to rmcp, so rmcp's responses
+//! are the contract these tests pin. `POST` and `GET` carrying an unrecognized
+//! or empty session id answer `404 Not Found`, letting the client recover by
+//! starting a new session via an `InitializeRequest` without a session id.
+//! `DELETE` is idempotent and answers `202 Accepted` whether or not the session
+//! exists. A missing session id on `GET` or `DELETE` answers `400 Bad Request`,
+//! and a `POST` that is neither an `initialize` request nor bound to a session
+//! answers `422 Unprocessable Entity`. In stateless mode the header is ignored.
 
 mod common;
 
@@ -19,8 +19,9 @@ use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
 
-const MISSING_SESSION_ID_BODY: &str = "Bad Request: Mcp-Session-Id header is required";
-const SESSION_NOT_FOUND_BODY: &str = "Session not found";
+const MISSING_SESSION_ID_BODY: &str = "Bad Request: Session ID is required";
+const SESSION_NOT_FOUND_BODY: &str = "Not Found: Session not found";
+const NOT_AN_INITIALIZE_REQUEST_BODY: &str = "Unexpected message, expect initialize request";
 
 struct TestServer {
     url: String,
@@ -113,8 +114,11 @@ async fn get_with_unknown_session_id_returns_404() {
     assert_eq!(body, SESSION_NOT_FOUND_BODY);
 }
 
+/// `DELETE` is idempotent: deleting a session that does not exist reaches the
+/// same end state as deleting one that does, so it is acknowledged rather than
+/// rejected.
 #[actix_web::test]
-async fn delete_with_unknown_session_id_returns_404() {
+async fn delete_with_unknown_session_id_returns_202() {
     let server = TestServer::spawn(true).await;
 
     let response = server
@@ -125,9 +129,9 @@ async fn delete_with_unknown_session_id_returns_404() {
         .await
         .expect("Failed to send request");
 
-    assert_eq!(response.status(), reqwest::StatusCode::NOT_FOUND);
+    assert_eq!(response.status(), reqwest::StatusCode::ACCEPTED);
     let body = response.text().await.expect("Failed to read response body");
-    assert_eq!(body, SESSION_NOT_FOUND_BODY);
+    assert!(body.is_empty(), "expected an empty body, got: {body:?}");
 }
 
 #[actix_web::test]
@@ -163,8 +167,10 @@ async fn delete_with_missing_session_id_returns_400() {
     assert_eq!(body, MISSING_SESSION_ID_BODY);
 }
 
+/// Without a session id the only message a stateful server can place is an
+/// `initialize` request, so anything else is well-formed but unprocessable.
 #[actix_web::test]
-async fn post_without_session_id_and_non_initialize_returns_400() {
+async fn post_without_session_id_and_non_initialize_returns_422() {
     let server = TestServer::spawn(true).await;
 
     let tools_list_request = json!({
@@ -183,13 +189,15 @@ async fn post_without_session_id_and_non_initialize_returns_400() {
         .await
         .expect("Failed to send request");
 
-    assert_eq!(response.status(), reqwest::StatusCode::BAD_REQUEST);
+    assert_eq!(response.status(), reqwest::StatusCode::UNPROCESSABLE_ENTITY);
     let body = response.text().await.expect("Failed to read response body");
-    assert_eq!(body, MISSING_SESSION_ID_BODY);
+    assert_eq!(body, NOT_AN_INITIALIZE_REQUEST_BODY);
 }
 
+/// An empty header value is not a missing header: it is a session id that no
+/// session matches.
 #[actix_web::test]
-async fn post_with_empty_session_id_returns_400() {
+async fn post_with_empty_session_id_returns_404() {
     let server = TestServer::spawn(true).await;
 
     let tools_list_request = json!({
@@ -209,13 +217,15 @@ async fn post_with_empty_session_id_returns_400() {
         .await
         .expect("Failed to send request");
 
-    assert_eq!(response.status(), reqwest::StatusCode::BAD_REQUEST);
+    assert_eq!(response.status(), reqwest::StatusCode::NOT_FOUND);
     let body = response.text().await.expect("Failed to read response body");
-    assert_eq!(body, MISSING_SESSION_ID_BODY);
+    assert_eq!(body, SESSION_NOT_FOUND_BODY);
 }
 
+/// An empty header value is not a missing header: it is a session id that no
+/// session matches.
 #[actix_web::test]
-async fn get_with_empty_session_id_returns_400() {
+async fn get_with_empty_session_id_returns_404() {
     let server = TestServer::spawn(true).await;
 
     let response = server
@@ -227,13 +237,15 @@ async fn get_with_empty_session_id_returns_400() {
         .await
         .expect("Failed to send request");
 
-    assert_eq!(response.status(), reqwest::StatusCode::BAD_REQUEST);
+    assert_eq!(response.status(), reqwest::StatusCode::NOT_FOUND);
     let body = response.text().await.expect("Failed to read response body");
-    assert_eq!(body, MISSING_SESSION_ID_BODY);
+    assert_eq!(body, SESSION_NOT_FOUND_BODY);
 }
 
+/// `DELETE` is idempotent, so an empty session id is acknowledged for the same
+/// reason an unknown one is.
 #[actix_web::test]
-async fn delete_with_empty_session_id_returns_400() {
+async fn delete_with_empty_session_id_returns_202() {
     let server = TestServer::spawn(true).await;
 
     let response = server
@@ -244,9 +256,80 @@ async fn delete_with_empty_session_id_returns_400() {
         .await
         .expect("Failed to send request");
 
-    assert_eq!(response.status(), reqwest::StatusCode::BAD_REQUEST);
+    assert_eq!(response.status(), reqwest::StatusCode::ACCEPTED);
     let body = response.text().await.expect("Failed to read response body");
-    assert_eq!(body, MISSING_SESSION_ID_BODY);
+    assert!(body.is_empty(), "expected an empty body, got: {body:?}");
+}
+
+/// The negative `DELETE` tests answer `202` for any session id, so on their own
+/// they would also pass against a transport that ignored `DELETE` entirely.
+/// This pins that a `DELETE` naming a live session actually ends it.
+#[actix_web::test]
+async fn delete_with_a_live_session_id_ends_the_session() {
+    let server = TestServer::spawn(true).await;
+
+    let initialize_request = json!({
+        "jsonrpc": "2.0",
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2025-03-26",
+            "capabilities": {},
+            "clientInfo": {
+                "name": "delete-live-session-test",
+                "version": "0.0.0"
+            }
+        },
+        "id": 1
+    });
+
+    let initialized = server
+        .client
+        .post(&server.url)
+        .header("Accept", "application/json, text/event-stream")
+        .header("Content-Type", "application/json")
+        .json(&initialize_request)
+        .send()
+        .await
+        .expect("Failed to send request");
+
+    assert_eq!(initialized.status(), reqwest::StatusCode::OK);
+    let session_id = initialized
+        .headers()
+        .get("Mcp-Session-Id")
+        .expect("a stateful initialize must answer with a session id")
+        .to_str()
+        .expect("session id must be UTF-8")
+        .to_string();
+    let _ = initialized.text().await;
+
+    let deleted = server
+        .client
+        .delete(&server.url)
+        .header("Mcp-Session-Id", &session_id)
+        .send()
+        .await
+        .expect("Failed to send request");
+
+    assert_eq!(deleted.status(), reqwest::StatusCode::ACCEPTED);
+
+    let reused = server
+        .client
+        .post(&server.url)
+        .header("Accept", "application/json, text/event-stream")
+        .header("Content-Type", "application/json")
+        .header("Mcp-Session-Id", &session_id)
+        .json(&json!({"jsonrpc": "2.0", "method": "tools/list", "id": 2}))
+        .send()
+        .await
+        .expect("Failed to send request");
+
+    assert_eq!(
+        reused.status(),
+        reqwest::StatusCode::NOT_FOUND,
+        "a deleted session id must no longer resolve"
+    );
+    let body = reused.text().await.expect("Failed to read response body");
+    assert_eq!(body, SESSION_NOT_FOUND_BODY);
 }
 
 #[actix_web::test]

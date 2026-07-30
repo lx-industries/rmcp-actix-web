@@ -64,7 +64,9 @@ impl HeadersTestService {
         context: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, McpError> {
         // Extract Authorization header from the current request's context
-        if let Some(auth) = context.extensions.get::<AuthorizationHeader>() {
+        if let Some(auth) = rmcp_actix_web::transport::on_request_extensions(&context.extensions)
+            .and_then(|extensions| extensions.get::<AuthorizationHeader>())
+        {
             // Store it for verification
             let mut last_auth = self.last_tool_authorization.lock().await;
             *last_auth = Some(auth.0.clone());
@@ -84,6 +86,31 @@ impl HeadersTestService {
                 .to_string(),
             )]))
         }
+    }
+
+    /// Returns both surfaces the Authorization header could reach a handler through.
+    #[tool(description = "Report the Authorization extension and the raw Authorization header")]
+    async fn get_auth_surfaces(
+        &self,
+        context: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, McpError> {
+        let extension = rmcp_actix_web::transport::on_request_extensions(&context.extensions)
+            .and_then(|extensions| extensions.get::<AuthorizationHeader>())
+            .map(|auth| auth.0.clone());
+        let raw_header = context
+            .extensions
+            .get::<http::request::Parts>()
+            .and_then(|parts| parts.headers.get(http::header::AUTHORIZATION))
+            .and_then(|value| value.to_str().ok())
+            .map(String::from);
+
+        Ok(CallToolResult::success(vec![ContentBlock::text(
+            json!({
+                "extension": extension,
+                "raw_header": raw_header,
+            })
+            .to_string(),
+        )]))
     }
 
     /// Test tool to verify the service is working
@@ -109,7 +136,9 @@ impl ServerHandler for HeadersTestService {
         context: RequestContext<RoleServer>,
     ) -> Result<InitializeResult, McpError> {
         // Try to extract Authorization header from RequestContext extensions
-        if let Some(auth) = context.extensions.get::<AuthorizationHeader>() {
+        if let Some(auth) = rmcp_actix_web::transport::on_request_extensions(&context.extensions)
+            .and_then(|extensions| extensions.get::<AuthorizationHeader>())
+        {
             let mut captured = self.captured_authorization.lock().await;
             *captured = Some(auth.0.clone());
             tracing::info!(

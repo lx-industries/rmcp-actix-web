@@ -3,9 +3,13 @@
 //! This example shows how an MCP service can access Authorization headers sent by
 //! clients and use them to proxy requests to backend APIs.
 //!
+//! The transport only surfaces the header when the `authorization-token-passthrough`
+//! feature is enabled; without it the header is stripped and this example reports
+//! that no token was provided.
+//!
 //! Run with:
 //! ```bash
-//! cargo run --example authorization_proxy_example
+//! cargo run --features authorization-token-passthrough --example authorization_proxy_example
 //! ```
 //!
 //! Then test with curl:
@@ -168,7 +172,9 @@ impl ServerHandler for ProxyService {
         }
 
         // Extract and store Authorization header if present
-        if let Some(auth) = context.extensions.get::<AuthorizationHeader>() {
+        if let Some(auth) = rmcp_actix_web::transport::on_request_extensions(&context.extensions)
+            .and_then(|extensions| extensions.get::<AuthorizationHeader>())
+        {
             let mut stored_auth = self.authorization.lock().await;
             *stored_auth = Some(auth.0.clone());
             println!("✓ Authorization header captured: {}", auth.0);

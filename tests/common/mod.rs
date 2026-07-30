@@ -8,3 +8,6 @@ pub mod calculator;
 
 /// Test service for verifying Authorization header forwarding.
 pub mod headers_test_service;
+
+/// Helpers for reading JSON payloads out of SSE responses.
+pub mod sse;

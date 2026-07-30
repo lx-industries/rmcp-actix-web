@@ -9,12 +9,12 @@
 mod common;
 
 use actix_web::{App, HttpMessage, HttpRequest, HttpServer, dev::Service};
+use common::sse::find_tool_json_in_sse_stream;
 use futures::StreamExt;
-use reqwest::Response;
 use rmcp::model::Extensions;
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 use rmcp_actix_web::transport::StreamableHttpService;
-use serde_json::{Value, json};
+use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -59,7 +59,9 @@ mod extension_test_service {
             &self,
             context: RequestContext<RoleServer>,
         ) -> Result<CallToolResult, McpError> {
-            let claims = context.extensions.get::<TestClaims>().cloned();
+            let claims = rmcp_actix_web::transport::on_request_extensions(&context.extensions)
+                .and_then(|extensions| extensions.get::<TestClaims>())
+                .cloned();
 
             let result = if let Some(c) = claims {
                 json!({ "user_id": c.user_id, "role": c.role })
@@ -92,7 +94,9 @@ mod extension_test_service {
             context: RequestContext<RoleServer>,
         ) -> Result<InitializeResult, McpError> {
             // Log whether claims were received during initialization
-            if let Some(claims) = context.extensions.get::<TestClaims>() {
+            let claims = rmcp_actix_web::transport::on_request_extensions(&context.extensions)
+                .and_then(|extensions| extensions.get::<TestClaims>());
+            if let Some(claims) = claims {
                 tracing::info!(
                     "Received claims during initialization: user_id={}, role={}",
                     claims.user_id,
@@ -107,42 +111,6 @@ mod extension_test_service {
 }
 
 use extension_test_service::ExtensionTestService;
-
-/// Helper function to extract claims from SSE response
-async fn extract_claims_from_sse_response(response: Response) -> Option<Value> {
-    let mut body = Vec::new();
-    let mut stream = response.bytes_stream();
-
-    // Request-wise SSE streams begin with a priming event (SEP-1699) whose
-    // `data:` line is empty, so the first `\n\n` terminator is not the real
-    // response. Keep reading until a `data:` line parses as the expected
-    // payload, or until the byte cap / timeout fires.
-    tokio::time::timeout(Duration::from_secs(2), async {
-        loop {
-            let body_str = String::from_utf8_lossy(&body);
-            for line in body_str.lines() {
-                if let Some(json_str) = line.strip_prefix("data: ")
-                    && let Ok(response_json) = serde_json::from_str::<Value>(json_str)
-                    && let Some(text_value) = response_json.pointer("/result/content/0/text")
-                    && let Some(text_str) = text_value.as_str()
-                    && let Ok(claims_response) = serde_json::from_str::<Value>(text_str)
-                {
-                    return Some(claims_response);
-                }
-            }
-            if body.len() > 4096 {
-                return None;
-            }
-            match stream.next().await {
-                Some(Ok(bytes)) => body.extend_from_slice(&bytes),
-                _ => return None,
-            }
-        }
-    })
-    .await
-    .ok()
-    .flatten()
-}
 
 /// Test that on_request hook is called in stateless mode
 #[actix_web::test]
@@ -250,7 +218,7 @@ async fn test_on_request_hook_stateless_mode() {
 
     assert_eq!(tool_response.status(), 200);
 
-    let claims = extract_claims_from_sse_response(tool_response).await;
+    let claims = find_tool_json_in_sse_stream(tool_response).await;
     assert!(claims.is_some(), "Should have received claims response");
 
     let claims = claims.unwrap();
@@ -399,7 +367,7 @@ async fn test_on_request_hook_stateful_mode_existing_session() {
 
     assert_eq!(tool_response.status(), 200);
 
-    let claims = extract_claims_from_sse_response(tool_response).await;
+    let claims = find_tool_json_in_sse_stream(tool_response).await;
     assert!(claims.is_some(), "Should have received claims response");
 
     let claims = claims.unwrap();
@@ -617,7 +585,7 @@ async fn test_on_request_hook_no_claims() {
 
     assert_eq!(tool_response.status(), 200);
 
-    let claims = extract_claims_from_sse_response(tool_response).await;
+    let claims = find_tool_json_in_sse_stream(tool_response).await;
     assert!(claims.is_some(), "Should have received response");
 
     let claims = claims.unwrap();
@@ -730,7 +698,7 @@ async fn test_service_without_on_request_hook() {
 
     assert_eq!(tool_response.status(), 200);
 
-    let claims = extract_claims_from_sse_response(tool_response).await;
+    let claims = find_tool_json_in_sse_stream(tool_response).await;
     assert!(claims.is_some(), "Should have received response");
 
     let claims = claims.unwrap();
@@ -758,4 +726,87 @@ async fn test_on_request_builder_ergonomics() {
         .build();
 
     // If this compiles, the test passes
+}
+
+#[actix_web::test]
+async fn on_request_values_are_reachable_through_the_accessor() {
+    let service = StreamableHttpService::builder()
+        .service_factory(Arc::new(|| Ok(ExtensionTestService::new())))
+        .session_manager(Arc::new(LocalSessionManager::default()))
+        .stateful_mode(false)
+        .on_request_fn(|http_req: &HttpRequest, ext: &mut Extensions| {
+            if let Some(claims) = http_req.extensions().get::<TestClaims>() {
+                ext.insert(claims.clone());
+            }
+        })
+        .build();
+
+    let server = HttpServer::new(move || {
+        App::new()
+            .wrap_fn(|req, srv| {
+                req.extensions_mut().insert(TestClaims {
+                    user_id: "accessor-user-123".to_string(),
+                    role: "admin".to_string(),
+                });
+                srv.call(req)
+            })
+            .service(actix_web::web::scope("/mcp").service(service.clone().scope()))
+    })
+    .bind("127.0.0.1:0")
+    .expect("Failed to bind server");
+
+    let addr = *server.addrs().first().unwrap();
+    let server_handle = server.run();
+    let server_task = tokio::spawn(async move {
+        let _ = server_handle.await;
+    });
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let client = reqwest::Client::new();
+    let url = format!("http://{}/mcp", addr);
+
+    let init = client
+        .post(&url)
+        .header("Accept", "application/json, text/event-stream")
+        .header("Content-Type", "application/json")
+        .json(&json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2025-03-26",
+                "capabilities": {},
+                "clientInfo": {"name": "test", "version": "1.0"}
+            }
+        }))
+        .send()
+        .await
+        .expect("initialize");
+    assert!(init.status().is_success());
+
+    let call = client
+        .post(&url)
+        .header("Accept", "application/json, text/event-stream")
+        .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2025-03-26")
+        .json(&json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
+            "params": {"name": "get_claims", "arguments": {}}
+        }))
+        .send()
+        .await
+        .expect("tools/call");
+
+    let claims = find_tool_json_in_sse_stream(call)
+        .await
+        .expect("tool returned claims");
+    assert_eq!(
+        claims["user_id"], "accessor-user-123",
+        "values written by the on_request hook must survive the bridge and be \
+         reachable through on_request_extensions"
+    );
+
+    server_task.abort();
 }
