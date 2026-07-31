@@ -14,10 +14,14 @@
 //!
 //! ## Testing with curl
 //!
+//! Every request must accept both media types, or the server answers
+//! `406 Not Acceptable`. The `-i` flag shows the `Mcp-Session-Id` response header.
+//!
 //! With claims header (simulated middleware):
 //! ```bash
-//! curl -X POST http://localhost:8080/ \
+//! curl -i -X POST http://localhost:8080/ \
 //!   -H "Content-Type: application/json" \
+//!   -H "Accept: application/json, text/event-stream" \
 //!   -H "X-User-Id: alice123" \
 //!   -H "X-User-Role: admin" \
 //!   -d '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"id":1}'
@@ -27,6 +31,7 @@
 //! ```bash
 //! curl -X POST http://localhost:8080/ \
 //!   -H "Content-Type: application/json" \
+//!   -H "Accept: application/json, text/event-stream" \
 //!   -H "X-User-Id: alice123" \
 //!   -H "X-User-Role: admin" \
 //!   -H "Mcp-Session-Id: <session-id-from-above>" \

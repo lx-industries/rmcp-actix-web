@@ -13,24 +13,35 @@
 //!
 //! ## Testing with curl
 //!
-//! Send a JSON-RPC request (creates a new session):
+//! Initialize a session. The server answers with an `Mcp-Session-Id` response
+//! header; the session id cannot be chosen by the client. Every request must
+//! accept both media types, or the server answers `406 Not Acceptable`.
+//! ```bash
+//! curl -i -X POST http://localhost:8080/ \
+//!   -H "Content-Type: application/json" \
+//!   -H "Accept: application/json, text/event-stream" \
+//!   -d '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"curl","version":"1.0"}},"id":1}'
+//! ```
+//!
+//! Read the counter, passing the session id from the response above:
 //! ```bash
 //! curl -X POST http://localhost:8080/ \
 //!   -H "Content-Type: application/json" \
-//!   -H "Mcp-Session-Id: test-session" \
-//!   -d '{"jsonrpc":"2.0","method":"counter/current","params":{},"id":1}'
+//!   -H "Accept: application/json, text/event-stream" \
+//!   -H "Mcp-Session-Id: <session-id-from-above>" \
+//!   -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"get_value","arguments":{}},"id":2}'
 //! ```
 //!
 //! Resume the SSE stream for a session:
 //! ```bash
-//! curl -N -H "Mcp-Session-Id: test-session" \
+//! curl -N -H "Mcp-Session-Id: <session-id-from-above>" \
 //!   -H "Accept: text/event-stream" \
 //!   http://localhost:8080/
 //! ```
 //!
 //! Close a session:
 //! ```bash
-//! curl -X DELETE -H "Mcp-Session-Id: test-session" http://localhost:8080/
+//! curl -X DELETE -H "Mcp-Session-Id: <session-id-from-above>" http://localhost:8080/
 //! ```
 //!
 //! ## Architecture
