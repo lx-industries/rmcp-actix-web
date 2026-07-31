@@ -313,10 +313,18 @@ where
             on_request: self.on_request,
         };
 
+        // Both routes are needed. Under a non-empty prefix the empty path is the one
+        // that matches: `/mcp` needs no trimming, and `/mcp/` has already been
+        // trimmed by `NormalizePath::trim`. Under an empty prefix — a service
+        // mounted at the application root — the empty path yields a pattern no
+        // request can match, since request paths always begin with a slash; there,
+        // "/" is the one that matches. Neither route shadows the other, and the pair
+        // keeps serving a trailing slash even without the trimming middleware.
         web::scope(path)
             .app_data(web::Data::new(app_data))
             .wrap(middleware::NormalizePath::trim())
             .route("", web::route().to(Self::handle))
+            .route("/", web::route().to(Self::handle))
     }
 
     /// Bridges one actix-web request through rmcp's transport and back.

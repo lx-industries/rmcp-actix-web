@@ -516,12 +516,21 @@ where
             on_request: self.on_request,
         };
 
+        // Each method needs both paths. Under a non-empty prefix the empty path is
+        // the one that matches: `/mcp` needs no trimming, and `/mcp/` has already
+        // been trimmed by `NormalizePath::trim`. Under an empty prefix — a service
+        // mounted at the application root — the empty path yields a pattern no
+        // request can match, since request paths always begin with a slash; there,
+        // "/" is the one that matches. Neither path shadows the other.
         web::scope(path)
             .app_data(Data::new(app_data))
             .wrap(middleware::NormalizePath::trim())
             .route("", web::get().to(Self::handle_get))
             .route("", web::post().to(Self::handle_post))
             .route("", web::delete().to(Self::handle_delete))
+            .route("/", web::get().to(Self::handle_get))
+            .route("/", web::post().to(Self::handle_post))
+            .route("/", web::delete().to(Self::handle_delete))
     }
 
     async fn handle_get(req: HttpRequest, service: Data<AppData<S, M>>) -> Result<HttpResponse> {
@@ -1160,4 +1169,49 @@ mod tests {
             "data: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}\n\n"
         );
     }
+
+    /// A service mounted at the application root must reach its handler.
+    ///
+    /// An empty scope prefix leaves the empty-path routes matching a pattern no
+    /// request can produce, so without the "/" routes every request answers 404.
+    #[actix_web::test]
+    async fn root_mounted_scope_reaches_the_handler() {
+        use actix_web::{App, test};
+        use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
+        use std::sync::Arc;
+
+        let service = super::StreamableHttpService::builder()
+            .service_factory(Arc::new(|| Ok(TestHandler)))
+            .session_manager(Arc::new(LocalSessionManager::default()))
+            .build();
+        let app = test::init_service(App::new().service(service.scope())).await;
+
+        // An `initialize` POST is the unambiguous probe: the transport answers it
+        // with a session id, whereas a session-scoped request would answer 404 for a
+        // missing session, which is indistinguishable from a missing route.
+        let request = test::TestRequest::post()
+            .uri("/")
+            .insert_header(("Content-Type", "application/json"))
+            .insert_header(("Accept", "application/json, text/event-stream"))
+            .set_payload(
+                r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}"#,
+            )
+            .to_request();
+        let response = test::call_service(&app, request).await;
+
+        assert_eq!(
+            response.status(),
+            actix_web::http::StatusCode::OK,
+            "a root-mounted scope must route to the transport"
+        );
+        assert!(
+            response.headers().contains_key("mcp-session-id"),
+            "the transport, not the router, must have produced this response"
+        );
+    }
+
+    #[derive(Clone)]
+    struct TestHandler;
+
+    impl rmcp::ServerHandler for TestHandler {}
 }

@@ -99,3 +99,15 @@ async fn test_streamable_http_service_nested_scope_composition() {
 
     assert_initialized(response).await;
 }
+
+/// The service is mounted at the application root, so actix strips no prefix at
+/// all and the transport's own scope carries an empty one. This is the shape the
+/// crate documentation and the examples use.
+#[actix_web::test]
+async fn test_streamable_http_service_root_mount_composition() {
+    let app = test::init_service(App::new().service(service().scope())).await;
+
+    let response = test::call_service(&app, initialize_request("/").to_request()).await;
+
+    assert_initialized(response).await;
+}
