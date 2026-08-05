@@ -190,25 +190,25 @@ pub struct StreamableHttpService<
 
     /// Whether to keep sessions alive for peers negotiating a legacy protocol version.
     ///
-    /// Defaults to `true`. Peers negotiating `2026-07-28` are always served statelessly
-    /// per SEP-2567, regardless of this setting.
+    /// Leaving this unset inherits rmcp's own default. Peers negotiating `2026-07-28`
+    /// are always served statelessly per SEP-2567, regardless of this setting.
     ///
     /// Setting it to `false` also narrows the accepted methods: `DELETE` answers
     /// `405 Method Not Allowed`, and so does `GET` unless the session manager supplies
     /// an event store for the transport to replay from.
-    #[builder(default = true)]
-    stateful_mode: bool,
+    stateful_mode: Option<bool>,
 
-    /// Keep-alive interval for SSE connections.
-    ///
-    /// The value is passed to rmcp as given, so leaving it unset means no keep-alive at
-    /// all rather than rmcp's own default of 15 seconds. Set it explicitly when
-    /// intermediaries close idle connections.
-    sse_keep_alive: Option<Duration>,
+    // The three states of the keep-alive interval are encoded in
+    // `Option<Option<Duration>>`: outer `None` inherits rmcp's default, `Some(None)`
+    // turns the interval off, and `Some(Some(_))` sets it. The generated setters are
+    // private because they would expose that encoding; the public ones below are
+    // hand-written and carry the docs.
+    #[builder(setters(vis = "", name = sse_keep_alive_value))]
+    sse_keep_alive: Option<Option<Duration>>,
 
     /// Hostnames or `host:port` authorities accepted in the inbound `Host` header.
     ///
-    /// Defaults to rmcp's loopback-only list (`localhost`, `127.0.0.1`, `::1`), which
+    /// Leaving this unset inherits rmcp's own default, a loopback-only list that
     /// prevents DNS-rebinding attacks against locally running servers. Deployments
     /// reachable under any other hostname must set their own list, otherwise every
     /// request is rejected with `403 Forbidden`. An empty list disables the check,
@@ -220,9 +220,9 @@ pub struct StreamableHttpService<
 
     /// Browser origins accepted in the inbound `Origin` header.
     ///
-    /// Defaults to rmcp's empty list, which disables `Origin` validation. When
-    /// non-empty, entries must include a scheme; requests without an `Origin` header
-    /// still pass.
+    /// Leaving this unset inherits rmcp's own default, which performs no `Origin`
+    /// validation. When set to a non-empty list, entries must include a scheme;
+    /// requests without an `Origin` header still pass.
     allowed_origins: Option<Vec<String>>,
 
     /// Optional hook called for each request to propagate extensions from the
@@ -258,6 +258,49 @@ where
     }
 }
 
+impl<S, M, State: streamable_http_service_builder::State> StreamableHttpServiceBuilder<S, M, State>
+where
+    State::SseKeepAlive: streamable_http_service_builder::IsUnset,
+{
+    /// Sets the keep-alive interval for SSE connections.
+    ///
+    /// Leaving this unset inherits rmcp's own default. Call
+    /// [`disable_sse_keep_alive`](Self::disable_sse_keep_alive) to turn keep-alive off
+    /// instead of inheriting it. Set an explicit interval when intermediaries close
+    /// idle connections faster than rmcp's default.
+    pub fn sse_keep_alive(
+        self,
+        interval: Duration,
+    ) -> StreamableHttpServiceBuilder<S, M, streamable_http_service_builder::SetSseKeepAlive<State>>
+    {
+        self.sse_keep_alive_value(Some(interval))
+    }
+
+    /// Sets the keep-alive interval from a value that is optional at runtime.
+    ///
+    /// `Some(interval)` is equivalent to
+    /// [`sse_keep_alive(interval)`](Self::sse_keep_alive). `None` leaves the knob unset,
+    /// so rmcp's own default applies exactly as if neither setter had been called — it
+    /// does *not* turn keep-alive off, which is
+    /// [`disable_sse_keep_alive`](Self::disable_sse_keep_alive). Use this for an interval
+    /// read from configuration, where "absent" means "whatever rmcp chose".
+    pub fn maybe_sse_keep_alive(
+        self,
+        interval: Option<Duration>,
+    ) -> StreamableHttpServiceBuilder<S, M, streamable_http_service_builder::SetSseKeepAlive<State>>
+    {
+        self.maybe_sse_keep_alive_value(interval.map(Some))
+    }
+
+    /// Disables SSE keep-alive entirely, rather than inheriting rmcp's default interval.
+    pub fn disable_sse_keep_alive(
+        self,
+    ) -> StreamableHttpServiceBuilder<S, M, streamable_http_service_builder::SetSseKeepAlive<State>>
+    {
+        self.sse_keep_alive_value(None)
+    }
+}
+
 /// Per-scope state: the upstream service plus this crate's hook.
 struct AppData<S, M> {
     inner: RmcpService<S, M>,
@@ -269,6 +312,31 @@ where
     S: rmcp::ServerHandler + Send + 'static,
     M: SessionManager + 'static,
 {
+    /// Assembles rmcp's transport config from the fields the caller actually set.
+    ///
+    /// A field left unset is not written, so it keeps whatever default rmcp
+    /// chose rather than one hardcoded here.
+    // This function mirrors `RmcpConfig` field by field: when rmcp gains a config
+    // field, this crate gains a builder field and this function gains an arm for it.
+    // `RmcpConfig` is `#[non_exhaustive]`, so nothing but this comment flags the
+    // omission — an rmcp upgrade still compiles with the new knob unreachable.
+    fn build_rmcp_config(&self) -> RmcpConfig {
+        let mut config = RmcpConfig::default();
+        if let Some(sse_keep_alive) = self.sse_keep_alive {
+            config = config.with_sse_keep_alive(sse_keep_alive);
+        }
+        if let Some(stateful_mode) = self.stateful_mode {
+            config = config.with_legacy_session_mode(stateful_mode);
+        }
+        if let Some(allowed_hosts) = self.allowed_hosts.clone() {
+            config = config.with_allowed_hosts(allowed_hosts);
+        }
+        if let Some(allowed_origins) = self.allowed_origins.clone() {
+            config = config.with_allowed_origins(allowed_origins);
+        }
+        config
+    }
+
     /// Creates a scope configured with this service, mounted at the caller's path.
     pub fn scope(
         self,
@@ -297,15 +365,7 @@ where
             InitError = (),
         >,
     > {
-        let mut config = RmcpConfig::default()
-            .with_sse_keep_alive(self.sse_keep_alive)
-            .with_legacy_session_mode(self.stateful_mode);
-        if let Some(allowed_hosts) = self.allowed_hosts {
-            config = config.with_allowed_hosts(allowed_hosts);
-        }
-        if let Some(allowed_origins) = self.allowed_origins {
-            config = config.with_allowed_origins(allowed_origins);
-        }
+        let config = self.build_rmcp_config();
         let service_factory = self.service_factory;
         let inner = RmcpService::new(move || (service_factory)(), self.session_manager, config);
         let app_data = AppData {
@@ -369,6 +429,101 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rmcp::{
+        ServerHandler, model::ServerInfo,
+        transport::streamable_http_server::session::local::LocalSessionManager,
+    };
+
+    #[derive(Clone)]
+    struct TestService;
+
+    impl ServerHandler for TestService {
+        fn get_info(&self) -> ServerInfo {
+            ServerInfo::default()
+        }
+    }
+
+    // A macro, not a function: after two setters the bon builder's State type
+    // parameter is no longer its default, so a function would have to spell out
+    // bon's generated state types in its return position, as the public setters
+    // above do. The macro says the same thing in one line.
+    macro_rules! builder {
+        () => {
+            StreamableHttpService::builder()
+                .service_factory(Arc::new(|| Ok(TestService)))
+                .session_manager(Arc::new(LocalSessionManager::default()))
+        };
+    }
+
+    #[test]
+    fn set_sse_keep_alive_overrides_the_rmcp_default() {
+        let config = builder!()
+            .sse_keep_alive(Duration::from_secs(42))
+            .build()
+            .build_rmcp_config();
+
+        assert_eq!(config.sse_keep_alive, Some(Duration::from_secs(42)));
+    }
+
+    #[test]
+    fn disabled_sse_keep_alive_sends_none() {
+        let config = builder!()
+            .disable_sse_keep_alive()
+            .build()
+            .build_rmcp_config();
+
+        assert_eq!(config.sse_keep_alive, None);
+    }
+
+    #[test]
+    fn maybe_sse_keep_alive_with_a_value_overrides_the_rmcp_default() {
+        let config = builder!()
+            .maybe_sse_keep_alive(Some(Duration::from_secs(42)))
+            .build()
+            .build_rmcp_config();
+
+        assert_eq!(config.sse_keep_alive, Some(Duration::from_secs(42)));
+    }
+
+    #[test]
+    fn maybe_sse_keep_alive_with_none_inherits_the_rmcp_default() {
+        let config = builder!()
+            .maybe_sse_keep_alive(None)
+            .build()
+            .build_rmcp_config();
+
+        assert_eq!(config.sse_keep_alive, RmcpConfig::default().sse_keep_alive);
+    }
+
+    #[test]
+    fn set_allowed_origins_overrides_the_rmcp_default() {
+        let config = builder!()
+            .allowed_origins(vec!["https://example.com".to_string()])
+            .build()
+            .build_rmcp_config();
+
+        assert_eq!(config.allowed_origins, vec!["https://example.com"]);
+    }
+
+    #[test]
+    fn set_stateful_mode_overrides_the_rmcp_default() {
+        let config = builder!().stateful_mode(false).build().build_rmcp_config();
+
+        assert!(!config.legacy_session_mode);
+    }
+
+    /// Every knob left unset keeps rmcp's default. This is the single home for that
+    /// assertion, so a knob added later has one obvious place to be covered.
+    #[test]
+    fn unset_knobs_inherit_the_rmcp_defaults() {
+        let config = builder!().build().build_rmcp_config();
+        let defaults = RmcpConfig::default();
+
+        assert_eq!(config.sse_keep_alive, defaults.sse_keep_alive);
+        assert_eq!(config.legacy_session_mode, defaults.legacy_session_mode);
+        assert_eq!(config.allowed_hosts, defaults.allowed_hosts);
+        assert_eq!(config.allowed_origins, defaults.allowed_origins);
+    }
 
     #[test]
     fn converts_method_across_http_versions() {

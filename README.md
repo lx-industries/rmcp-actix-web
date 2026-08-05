@@ -163,15 +163,21 @@ indexing `context.extensions` directly — see
 If you need the previous transport verbatim, including its flat extension shape, enable
 the [`legacy-transport`](#legacy-transport) feature.
 
-### SSE keep-alive is unset by default, unlike rmcp's own default
+### SSE keep-alive follows rmcp's default
 
-This crate passes the `sse_keep_alive` builder value through to rmcp verbatim, so leaving
-it unset yields `None` — no keep-alive pings at all — even though rmcp's own
-`StreamableHttpServerConfig::default()` sends one every 15 seconds. This is not a change
-from the previous version of this crate: the hand-written transport also defaulted to no
-keep-alive. It is called out here because a reader who treats "rmcp's responses are the
-contract" as the whole story could be surprised behind an idle-timeout proxy. Set
-`.sse_keep_alive(Duration::from_secs(...))` explicitly if you need one.
+A builder knob left unset is not written to rmcp's config, so it keeps whatever default
+rmcp chose. Leaving `sse_keep_alive` unset therefore sends rmcp's own keep-alive interval.
+
+| Request | Before | Now |
+|---------|--------|-----|
+| An SSE stream from a service that never set `sse_keep_alive` | no keep-alive comments | an empty SSE comment (`:` alone on a line) at rmcp's default interval |
+| An SSE stream from a service that called `.maybe_sse_keep_alive(None)` | no keep-alive comments | same as never setting it: rmcp's default interval |
+
+Call `.sse_keep_alive(Duration::from_secs(...))` for a specific interval, or
+`.disable_sse_keep_alive()` for the previous behaviour of no keep-alive at all.
+`.maybe_sse_keep_alive(interval)` still takes an `Option<Duration>` for a value that is
+optional at runtime, but its `None` now means "leave the knob unset" rather than "no
+keep-alive"; `.disable_sse_keep_alive()` is what turns keep-alive off.
 
 ## Quick Start
 
@@ -226,8 +232,8 @@ let http_service = StreamableHttpService::builder()
     .build();
 ```
 
-`.allowed_origins(...)` similarly restricts the inbound `Origin` header; it defaults to
-an empty list, which disables `Origin` validation.
+`.allowed_origins(...)` similarly restricts the inbound `Origin` header. Leaving it unset
+inherits rmcp's own default, which performs no `Origin` validation.
 
 The same defence also rejects a request that carries **no** `Host` header at all, with
 `400 Bad Request` and the body `Bad Request: missing Host header`. Setting
