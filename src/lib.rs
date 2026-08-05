@@ -30,12 +30,11 @@
 //! every request is rejected.
 //!
 //! ```rust,no_run
-//! use rmcp_actix_web::transport::{StreamableHttpService, AuthorizationHeader};
-//! use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
-//! use rmcp::{ServerHandler, model::ServerInfo};
+//! use rmcp_actix_web::transport::{AuthorizationHeader, LocalSessionManager, StreamableHttpService};
 //! use actix_web::{App, HttpServer};
 //! use std::{sync::Arc, time::Duration};
 //!
+//! # use rmcp::{ServerHandler, model::ServerInfo};
 //! # #[derive(Clone)]
 //! # struct MyMcpService;
 //! # impl ServerHandler for MyMcpService {
@@ -82,8 +81,7 @@
 //! ### Service Composition
 //!
 //! ```rust,no_run
-//! use rmcp_actix_web::transport::{StreamableHttpService, AuthorizationHeader};
-//! use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
+//! use rmcp_actix_web::transport::{AuthorizationHeader, LocalSessionManager, StreamableHttpService};
 //! use actix_web::{App, web};
 //! use std::{sync::Arc, time::Duration};
 //!

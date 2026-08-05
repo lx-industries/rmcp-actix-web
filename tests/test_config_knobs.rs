@@ -62,6 +62,39 @@ async fn oversized_request_body_is_rejected_with_413() {
     assert_eq!(response.status().as_u16(), 413);
 }
 
+// Pins the re-export contract: every public name `rmcp_actix_web::transport` offers is
+// still reachable through that path, under that name, with that shape. Nothing here
+// runs — the check is that dropping or demoting a public item stops this file compiling,
+// which is what keeps a re-export from vanishing silently.
+const _: fn() = || {
+    use rmcp_actix_web::transport::{
+        AuthorizationHeader, CancellationToken, Extensions, LocalSessionManager, OnRequestHook,
+        SessionManager, SessionStore, StreamableHttpService, StreamableHttpServiceBuilder, http,
+        on_request_extensions, streamable_http_server,
+    };
+
+    fn takes_a_session_manager<M: SessionManager>(_manager: Arc<M>) {}
+
+    let _: Option<&http::request::Parts> = None;
+    let _: Option<Arc<dyn SessionStore>> = None;
+    let _: Option<CancellationToken> = None;
+    let _: Option<Extensions> = None;
+    let _: Option<Arc<OnRequestHook>> = None;
+    let _: Option<AuthorizationHeader> = None;
+    let _: fn(&Extensions) -> Option<&Extensions> = on_request_extensions;
+    let _: Option<streamable_http_server::StreamableHttpService<Calculator>> = None;
+    let _: StreamableHttpServiceBuilder<Calculator> = StreamableHttpService::builder();
+    takes_a_session_manager(Arc::new(LocalSessionManager::default()));
+};
+
+// The `legacy-transport` module is a public path only when its feature is on.
+#[cfg(feature = "legacy-transport")]
+const _: fn() = || {
+    use rmcp_actix_web::transport::legacy_streamable_http_server;
+
+    let _: Option<legacy_streamable_http_server::StreamableHttpService<Calculator>> = None;
+};
+
 /// The configured limit, not something unconditional, is what decides the `413`.
 ///
 /// One body, two services: below the limit it is served, above it is rejected. A limit

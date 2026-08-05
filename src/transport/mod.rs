@@ -21,8 +21,7 @@
 //!
 //! ```rust,no_run
 //! use actix_web::{App, HttpServer, web};
-//! use rmcp_actix_web::transport::StreamableHttpService;
-//! use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
+//! use rmcp_actix_web::transport::{LocalSessionManager, StreamableHttpService};
 //! use std::{sync::Arc, time::Duration};
 //!
 //! # use rmcp::{ServerHandler, model::ServerInfo};
@@ -61,6 +60,11 @@
 //! interval knobs additionally offer `disable_sse_keep_alive` and `disable_sse_retry`
 //! for the difference between "inherit the default" and "turn it off".
 //!
+//! Every third-party type those setters name is re-exported here — `SessionManager`,
+//! `LocalSessionManager`, `SessionStore` and `CancellationToken` — along with the
+//! [`http`] crate whose `request::Parts` handlers read, so a downstream crate need not
+//! declare those dependencies itself.
+//!
 //! ## Propagating Extensions from Middleware
 //!
 //! Use the `on_request` hook to propagate typed data from actix-web middleware
@@ -69,7 +73,7 @@
 //! The hook receives the actix-web request and an [`Extensions`] map to write into:
 //!
 //! ```rust,ignore
-//! use rmcp_actix_web::transport::StreamableHttpService;
+//! use rmcp_actix_web::transport::{LocalSessionManager, StreamableHttpService};
 //! use actix_web::HttpMessage;
 //! use std::sync::Arc;
 //!
@@ -134,7 +138,51 @@ pub use streamable_http_server::{
 };
 
 /// Re-export of rmcp's Extensions type for use with on_request hook.
+///
+/// Not inlined: it belongs to rmcp, and rendering it here would present another
+/// crate's API as this one's.
+#[doc(no_inline)]
 pub use rmcp::model::Extensions;
+
+/// Re-export of the `http` crate, so downstream crates can name
+/// `http::request::Parts` when reading raw request headers out of
+/// [`rmcp::service::RequestContext::extensions`] without declaring their own
+/// `http` dependency and relying on Cargo to unify the versions.
+pub use http;
+
+/// Re-export of rmcp's session-store trait, named by the builder's `session_store`.
+///
+/// Gated with the builder that names it: rmcp puts this trait behind the same
+/// transport feature. Not inlined, for the reason given on [`Extensions`].
+#[cfg(feature = "transport-streamable-http")]
+#[doc(no_inline)]
+pub use rmcp::transport::streamable_http_server::session::SessionStore;
+
+/// Re-export of rmcp's session-manager trait, the `M` type parameter of
+/// [`StreamableHttpService`] and the bound its `session_manager` satisfies.
+///
+/// Gated with the builder that names it, for the reason given on [`SessionStore`].
+/// Not inlined, for the reason given on [`Extensions`].
+#[cfg(feature = "transport-streamable-http")]
+#[doc(no_inline)]
+pub use rmcp::transport::streamable_http_server::session::SessionManager;
+
+/// Re-export of rmcp's in-memory session manager, the default `M` of
+/// [`StreamableHttpService`] and the one every example passes to `session_manager`.
+///
+/// Gated with the builder that names it, for the reason given on [`SessionStore`].
+/// Not inlined, for the reason given on [`Extensions`].
+#[cfg(feature = "transport-streamable-http")]
+#[doc(no_inline)]
+pub use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
+
+/// Re-export of the cancellation token named by the builder's `cancellation_token`.
+///
+/// Gated with the builder that names it: nothing outside the transport feature
+/// mentions this type. Not inlined, for the reason given on [`Extensions`].
+#[cfg(feature = "transport-streamable-http")]
+#[doc(no_inline)]
+pub use tokio_util::sync::CancellationToken;
 
 /// Retrieves the extensions written by the `on_request` hook from a handler's request context.
 ///

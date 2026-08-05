@@ -188,8 +188,7 @@ distinction applies to `sse_retry`, which gains `.sse_retry(...)`,
 Mount MCP services at custom paths within existing actix-web applications:
 
 ```rust
-use rmcp_actix_web::transport::StreamableHttpService;
-use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
+use rmcp_actix_web::transport::{LocalSessionManager, StreamableHttpService};
 use actix_web::{App, HttpServer, web};
 use std::sync::Arc;
 
@@ -307,7 +306,7 @@ Each example includes detailed documentation and curl commands for testing.
 Use the `on_request` hook to propagate typed data from actix-web middleware to MCP request handlers. This is useful for passing JWT claims, user context, or other authentication data:
 
 ```rust
-use rmcp_actix_web::transport::StreamableHttpService;
+use rmcp_actix_web::transport::{LocalSessionManager, StreamableHttpService};
 use actix_web::HttpMessage;
 use std::sync::Arc;
 
