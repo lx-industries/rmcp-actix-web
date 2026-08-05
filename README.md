@@ -177,7 +177,9 @@ Call `.sse_keep_alive(Duration::from_secs(...))` for a specific interval, or
 `.disable_sse_keep_alive()` for the previous behaviour of no keep-alive at all.
 `.maybe_sse_keep_alive(interval)` still takes an `Option<Duration>` for a value that is
 optional at runtime, but its `None` now means "leave the knob unset" rather than "no
-keep-alive"; `.disable_sse_keep_alive()` is what turns keep-alive off.
+keep-alive"; `.disable_sse_keep_alive()` is what turns keep-alive off. The same three-way
+distinction applies to `sse_retry`, which gains `.sse_retry(...)`,
+`.maybe_sse_retry(...)` and `.disable_sse_retry()`.
 
 ## Quick Start
 

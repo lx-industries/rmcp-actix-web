@@ -12,7 +12,7 @@ categories = ["network-programming", "web-programming"]
 
 [features]
 default = ["transport-streamable-http"]
-transport-streamable-http = ["rmcp/transport-streamable-http-server"]
+transport-streamable-http = ["rmcp/transport-streamable-http-server", "dep:tokio-util"]
 
 # The hand-written actix-web transport that predates delegation to rmcp's own
 # StreamableHttpService. Retained for deployments depending on its flat
@@ -45,6 +45,7 @@ bytes = "1"
 http = "1"
 http-body = "1"
 http-body-util = "0.1"
+tokio-util = { version = "0.7.19", optional = true }
 
 [dev-dependencies]
 actix-web = "4"
@@ -59,3 +60,4 @@ reqwest = { version = "0.13", features = ["json", "stream"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 chrono = "0.4"
 insta = { version = "1.41", features = ["json"] }
+async-trait = "0.1.91"

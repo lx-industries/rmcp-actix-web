@@ -53,6 +53,14 @@
 //! }
 //! ```
 //!
+//! ## Configuring the Transport
+//!
+//! `StreamableHttpServiceBuilder` reaches every knob of rmcp's
+//! `StreamableHttpServerConfig`, each documented on its own setter. A knob left unset is
+//! not written to rmcp's config, so it keeps whatever default rmcp chose; the two
+//! interval knobs additionally offer `disable_sse_keep_alive` and `disable_sse_retry`
+//! for the difference between "inherit the default" and "turn it off".
+//!
 //! ## Propagating Extensions from Middleware
 //!
 //! Use the `on_request` hook to propagate typed data from actix-web middleware

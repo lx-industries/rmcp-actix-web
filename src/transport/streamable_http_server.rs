@@ -19,9 +19,10 @@ use http_body::Frame;
 use http_body_util::{BodyDataStream, StreamBody};
 use rmcp::transport::streamable_http_server::{
     StreamableHttpServerConfig as RmcpConfig, StreamableHttpService as RmcpService,
-    session::SessionManager,
+    session::{SessionManager, SessionStore},
 };
 use tokio_stream::wrappers::ReceiverStream;
+use tokio_util::sync::CancellationToken;
 
 /// Bound on the number of body chunks buffered between actix's `!Send` payload
 /// and the `Send` body handed to rmcp. Backpressure stops the forwarder when full.
@@ -190,21 +191,68 @@ pub struct StreamableHttpService<
 
     /// Whether to keep sessions alive for peers negotiating a legacy protocol version.
     ///
-    /// Leaving this unset inherits rmcp's own default. Peers negotiating `2026-07-28`
-    /// are always served statelessly per SEP-2567, regardless of this setting.
+    /// Leaving this unset inherits rmcp's own default.
+    ///
+    /// # Stateless routing
+    ///
+    /// rmcp routes a request statelessly when this is `false`, and also when the request
+    /// itself negotiates protocol version `2026-07-28` — SEP-2567 removed sessions from
+    /// that version, so such peers are served statelessly whatever this is set to.
+    /// Setting this to `false` is therefore what guarantees *every* request takes the
+    /// stateless path, not what makes the stateless path exist.
     ///
     /// Setting it to `false` also narrows the accepted methods: `DELETE` answers
     /// `405 Method Not Allowed`, and so does `GET` unless the session manager supplies
     /// an event store for the transport to replay from.
+    /// [`LocalSessionManager`](super::LocalSessionManager) supplies none by default, so a
+    /// stateless deployment using it as-is serves `POST` only;
+    /// `LocalSessionManager::default().with_event_store(store)` opts back into `GET`.
     stateful_mode: Option<bool>,
 
-    // The three states of the keep-alive interval are encoded in
-    // `Option<Option<Duration>>`: outer `None` inherits rmcp's default, `Some(None)`
-    // turns the interval off, and `Some(Some(_))` sets it. The generated setters are
-    // private because they would expose that encoding; the public ones below are
-    // hand-written and carry the docs.
+    // The three states of both interval knobs are encoded in `Option<Option<Duration>>`:
+    // outer `None` inherits rmcp's default, `Some(None)` turns the interval off, and
+    // `Some(Some(_))` sets it. The generated setters are private because they would
+    // expose that encoding; the public ones below are hand-written and carry the docs.
     #[builder(setters(vis = "", name = sse_keep_alive_value))]
     sse_keep_alive: Option<Option<Duration>>,
+
+    #[builder(setters(vis = "", name = sse_retry_value))]
+    sse_retry: Option<Option<Duration>>,
+
+    /// Whether to prefer `application/json` over `text/event-stream` for simple
+    /// request-response tools.
+    ///
+    /// Consulted for every statelessly routed request, as described under
+    /// [`stateful_mode`](StreamableHttpServiceBuilder::stateful_mode).
+    /// Peers negotiating `2026-07-28` are served statelessly even with
+    /// `stateful_mode` left at its default, so this knob reaches them too. If the
+    /// handler emits a notification or request before the final response, rmcp falls
+    /// back to `text/event-stream` so no message is lost. Leaving this unset inherits
+    /// rmcp's own default.
+    json_response: Option<bool>,
+
+    /// Maximum accepted `POST` body size, in bytes.
+    ///
+    /// Enforced by rmcp while the body streams in, independently of `Content-Length`,
+    /// chunked transfer encoding, and HTTP version. Oversized payloads are answered
+    /// `413 Payload Too Large`. Leaving this unset inherits rmcp's own default limit.
+    max_request_body_bytes: Option<usize>,
+
+    /// Whether stateless JSON-RPC request `POST`s must carry per-request protocol
+    /// signals before handler dispatch.
+    ///
+    /// When enabled, non-initialize requests must carry `MCP-Protocol-Version`, and
+    /// ordinary non-discovery requests must also carry
+    /// `_meta.io.modelcontextprotocol/protocolVersion`. Leaving this unset inherits
+    /// rmcp's own default.
+    ///
+    /// The validation runs only on statelessly routed requests, as described under
+    /// [`stateful_mode`](StreamableHttpServiceBuilder::stateful_mode).
+    /// Legacy clients do not attach per-request protocol metadata, so a server enabling
+    /// this should normally override
+    /// [`ServerHandler::supported_protocol_versions`](rmcp::ServerHandler::supported_protocol_versions)
+    /// to advertise only `2026-07-28` and later.
+    stateless_protocol_metadata_required: Option<bool>,
 
     /// Hostnames or `host:port` authorities accepted in the inbound `Host` header.
     ///
@@ -225,6 +273,20 @@ pub struct StreamableHttpService<
     /// requests without an `Origin` header still pass.
     allowed_origins: Option<Vec<String>>,
 
+    /// External session store used for cross-instance session recovery.
+    ///
+    /// When set, the client's `initialize` parameters are persisted after a successful
+    /// handshake and deleted when the session closes, so a request arriving at an
+    /// instance with no in-memory session can transparently restore it. Leaving this
+    /// unset means sessions live only in the process that created them.
+    session_store: Option<Arc<dyn SessionStore>>,
+
+    /// Token that terminates all active sessions when cancelled.
+    ///
+    /// Set this to tie the transport's lifetime to a coordinated shutdown. Leaving it
+    /// unset gives rmcp its own token, which nothing outside the transport can cancel.
+    cancellation_token: Option<CancellationToken>,
+
     /// Optional hook called for each request to propagate extensions from the
     /// actix-web request to the MCP request context.
     on_request: Option<Arc<OnRequestHook>>,
@@ -237,8 +299,14 @@ impl<S, M> Clone for StreamableHttpService<S, M> {
             session_manager: self.session_manager.clone(),
             stateful_mode: self.stateful_mode,
             sse_keep_alive: self.sse_keep_alive,
+            sse_retry: self.sse_retry,
+            json_response: self.json_response,
+            max_request_body_bytes: self.max_request_body_bytes,
+            stateless_protocol_metadata_required: self.stateless_protocol_metadata_required,
             allowed_hosts: self.allowed_hosts.clone(),
             allowed_origins: self.allowed_origins.clone(),
+            session_store: self.session_store.clone(),
+            cancellation_token: self.cancellation_token.clone(),
             on_request: self.on_request.clone(),
         }
     }
@@ -301,6 +369,47 @@ where
     }
 }
 
+impl<S, M, State: streamable_http_service_builder::State> StreamableHttpServiceBuilder<S, M, State>
+where
+    State::SseRetry: streamable_http_service_builder::IsUnset,
+{
+    /// Sets the retry interval advertised to clients in SSE priming events.
+    ///
+    /// Leaving this unset inherits rmcp's own default. Call
+    /// [`disable_sse_retry`](Self::disable_sse_retry) to omit the retry hint entirely
+    /// instead of inheriting it.
+    pub fn sse_retry(
+        self,
+        interval: Duration,
+    ) -> StreamableHttpServiceBuilder<S, M, streamable_http_service_builder::SetSseRetry<State>>
+    {
+        self.sse_retry_value(Some(interval))
+    }
+
+    /// Sets the retry interval from a value that is optional at runtime.
+    ///
+    /// `Some(interval)` is equivalent to [`sse_retry(interval)`](Self::sse_retry). `None`
+    /// leaves the knob unset, so rmcp's own default applies exactly as if neither setter
+    /// had been called — it does *not* omit the retry hint, which is
+    /// [`disable_sse_retry`](Self::disable_sse_retry). Use this for an interval read from
+    /// configuration, where "absent" means "whatever rmcp chose".
+    pub fn maybe_sse_retry(
+        self,
+        interval: Option<Duration>,
+    ) -> StreamableHttpServiceBuilder<S, M, streamable_http_service_builder::SetSseRetry<State>>
+    {
+        self.maybe_sse_retry_value(interval.map(Some))
+    }
+
+    /// Omits the SSE retry hint entirely, rather than inheriting rmcp's default interval.
+    pub fn disable_sse_retry(
+        self,
+    ) -> StreamableHttpServiceBuilder<S, M, streamable_http_service_builder::SetSseRetry<State>>
+    {
+        self.sse_retry_value(None)
+    }
+}
+
 /// Per-scope state: the upstream service plus this crate's hook.
 struct AppData<S, M> {
     inner: RmcpService<S, M>,
@@ -325,6 +434,21 @@ where
         if let Some(sse_keep_alive) = self.sse_keep_alive {
             config = config.with_sse_keep_alive(sse_keep_alive);
         }
+        if let Some(sse_retry) = self.sse_retry {
+            config = config.with_sse_retry(sse_retry);
+        }
+        if let Some(json_response) = self.json_response {
+            config = config.with_json_response(json_response);
+        }
+        if let Some(max_request_body_bytes) = self.max_request_body_bytes {
+            config = config.with_max_request_body_bytes(max_request_body_bytes);
+        }
+        if let Some(stateless_protocol_metadata_required) =
+            self.stateless_protocol_metadata_required
+        {
+            config = config
+                .with_stateless_protocol_metadata_required(stateless_protocol_metadata_required);
+        }
         if let Some(stateful_mode) = self.stateful_mode {
             config = config.with_legacy_session_mode(stateful_mode);
         }
@@ -333,6 +457,14 @@ where
         }
         if let Some(allowed_origins) = self.allowed_origins.clone() {
             config = config.with_allowed_origins(allowed_origins);
+        }
+        if let Some(cancellation_token) = self.cancellation_token.clone() {
+            config = config.with_cancellation_token(cancellation_token);
+        }
+        // `session_store` is the one knob rmcp gives no fluent setter, so it is written
+        // by field assignment, which `#[non_exhaustive]` permits on an existing value.
+        if let Some(session_store) = self.session_store.clone() {
+            config.session_store = Some(session_store);
         }
         config
     }
@@ -430,8 +562,11 @@ where
 mod tests {
     use super::*;
     use rmcp::{
-        ServerHandler, model::ServerInfo,
-        transport::streamable_http_server::session::local::LocalSessionManager,
+        ServerHandler,
+        model::ServerInfo,
+        transport::streamable_http_server::session::{
+            SessionState, SessionStoreError, local::LocalSessionManager,
+        },
     };
 
     #[derive(Clone)]
@@ -440,6 +575,28 @@ mod tests {
     impl ServerHandler for TestService {
         fn get_info(&self) -> ServerInfo {
             ServerInfo::default()
+        }
+    }
+
+    /// A session store that persists nothing and never recovers a session.
+    struct NeverSessionStore;
+
+    #[async_trait::async_trait]
+    impl SessionStore for NeverSessionStore {
+        async fn load(&self, _session_id: &str) -> Result<Option<SessionState>, SessionStoreError> {
+            Ok(None)
+        }
+
+        async fn store(
+            &self,
+            _session_id: &str,
+            _state: &SessionState,
+        ) -> Result<(), SessionStoreError> {
+            Ok(())
+        }
+
+        async fn delete(&self, _session_id: &str) -> Result<(), SessionStoreError> {
+            Ok(())
         }
     }
 
@@ -496,6 +653,23 @@ mod tests {
     }
 
     #[test]
+    fn maybe_sse_retry_with_a_value_overrides_the_rmcp_default() {
+        let config = builder!()
+            .maybe_sse_retry(Some(Duration::from_secs(7)))
+            .build()
+            .build_rmcp_config();
+
+        assert_eq!(config.sse_retry, Some(Duration::from_secs(7)));
+    }
+
+    #[test]
+    fn maybe_sse_retry_with_none_inherits_the_rmcp_default() {
+        let config = builder!().maybe_sse_retry(None).build().build_rmcp_config();
+
+        assert_eq!(config.sse_retry, RmcpConfig::default().sse_retry);
+    }
+
+    #[test]
     fn set_allowed_origins_overrides_the_rmcp_default() {
         let config = builder!()
             .allowed_origins(vec!["https://example.com".to_string()])
@@ -520,9 +694,75 @@ mod tests {
         let defaults = RmcpConfig::default();
 
         assert_eq!(config.sse_keep_alive, defaults.sse_keep_alive);
+        assert_eq!(config.sse_retry, defaults.sse_retry);
+        assert_eq!(config.json_response, defaults.json_response);
+        assert_eq!(
+            config.max_request_body_bytes,
+            defaults.max_request_body_bytes
+        );
+        assert_eq!(
+            config.stateless_protocol_metadata_required,
+            defaults.stateless_protocol_metadata_required
+        );
         assert_eq!(config.legacy_session_mode, defaults.legacy_session_mode);
         assert_eq!(config.allowed_hosts, defaults.allowed_hosts);
         assert_eq!(config.allowed_origins, defaults.allowed_origins);
+        assert!(config.session_store.is_none());
+
+        // `CancellationToken` has no `PartialEq`, so the unset case is checked by
+        // behaviour: the config must hold a token of its own. Cancelling the token of a
+        // second unset build, or rmcp's own default token, must leave it uncancelled,
+        // which fails if the unset arm wrote a token shared beyond this build.
+        let second = builder!().build().build_rmcp_config();
+        second.cancellation_token.cancel();
+        defaults.cancellation_token.cancel();
+        assert!(!config.cancellation_token.is_cancelled());
+    }
+
+    #[test]
+    fn set_knobs_override_the_rmcp_defaults() {
+        let config = builder!()
+            .sse_retry(Duration::from_secs(7))
+            .json_response(true)
+            .max_request_body_bytes(1024)
+            .stateless_protocol_metadata_required(true)
+            .build()
+            .build_rmcp_config();
+
+        assert_eq!(config.sse_retry, Some(Duration::from_secs(7)));
+        assert!(config.json_response);
+        assert_eq!(config.max_request_body_bytes, 1024);
+        assert!(config.stateless_protocol_metadata_required);
+    }
+
+    #[test]
+    fn disabled_sse_retry_sends_none() {
+        let config = builder!().disable_sse_retry().build().build_rmcp_config();
+
+        assert_eq!(config.sse_retry, None);
+    }
+
+    #[test]
+    fn a_set_cancellation_token_reaches_rmcps_config() {
+        let token = CancellationToken::new();
+        let config = builder!()
+            .cancellation_token(token.clone())
+            .build()
+            .build_rmcp_config();
+
+        token.cancel();
+
+        assert!(config.cancellation_token.is_cancelled());
+    }
+
+    #[test]
+    fn a_set_session_store_reaches_rmcps_config() {
+        let config = builder!()
+            .session_store(Arc::new(NeverSessionStore))
+            .build()
+            .build_rmcp_config();
+
+        assert!(config.session_store.is_some());
     }
 
     #[test]
