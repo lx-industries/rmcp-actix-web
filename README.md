@@ -127,7 +127,7 @@ of these changes are adopted deliberately; none of them are bugs.
 
 | Request | Before | Now |
 |---------|--------|-----|
-| Any request whose `Host` is not `localhost`, `127.0.0.1`, or `::1` | served | `403 Forbidden`, body `Forbidden: Host header is not allowed` |
+| Any request whose `Host` is outside rmcp's [loopback-only default allow-list](https://docs.rs/rmcp/3/rmcp/transport/streamable_http_server/tower/struct.StreamableHttpServerConfig.html#structfield.allowed_hosts) | served | `403 Forbidden`, body `Forbidden: Host header is not allowed` |
 | Any request carrying no `Host` header at all | served | `400 Bad Request`, body `Bad Request: missing Host header` |
 
 This is a DNS-rebinding defence inherited from rmcp. **Any deployment reachable under its
@@ -218,12 +218,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ### Host and Origin Validation
 
-By default, the transport rejects any request whose `Host` header is not `localhost`,
-`127.0.0.1`, or `::1`, responding `403 Forbidden`. This is a DNS-rebinding defence
-inherited from rmcp and is safe for servers running on loopback, but it means **any
-deployment reachable under its own hostname rejects every request unless configured**.
-Set `.allowed_hosts(...)` to the hostnames or `host:port` authorities your deployment
-is reachable under:
+By default, the transport accepts loopback hosts only — rmcp's
+[`allowed_hosts` default](https://docs.rs/rmcp/3/rmcp/transport/streamable_http_server/tower/struct.StreamableHttpServerConfig.html#structfield.allowed_hosts) — and responds `403 Forbidden` to
+every other `Host`. This is a DNS-rebinding defence inherited from rmcp and is safe for
+servers running on loopback, but it means **any deployment reachable under its own
+hostname rejects every request unless configured**. Set `.allowed_hosts(...)` to the
+hostnames or `host:port` authorities your deployment is reachable under:
 
 ```rust,ignore
 let http_service = StreamableHttpService::builder()

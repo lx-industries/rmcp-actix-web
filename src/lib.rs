@@ -22,10 +22,12 @@
 //!
 //! ### Streamable HTTP Server Example
 //!
-//! The example below is reachable on loopback only. The transport rejects any request
-//! whose `Host` header is not `localhost`, `127.0.0.1`, or `::1` with `403 Forbidden`,
-//! and any request carrying no `Host` header at all with `400 Bad Request`. A deployment
-//! reachable under its own hostname must name it via
+//! The example below is reachable on loopback only. By default the transport accepts
+//! loopback hosts only — rmcp's
+//! [`allowed_hosts` default](https://docs.rs/rmcp/3/rmcp/transport/streamable_http_server/tower/struct.StreamableHttpServerConfig.html#structfield.allowed_hosts)
+//! — and answers `403 Forbidden` to every other `Host`, or `400 Bad Request` to a
+//! request carrying no `Host` header at all. A deployment reachable under its own
+//! hostname must name it via
 //! [`allowed_hosts`][transport::StreamableHttpServiceBuilder::allowed_hosts], otherwise
 //! every request is rejected.
 //!

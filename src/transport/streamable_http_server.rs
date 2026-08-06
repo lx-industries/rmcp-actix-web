@@ -256,8 +256,9 @@ pub struct StreamableHttpService<
 
     /// Hostnames or `host:port` authorities accepted in the inbound `Host` header.
     ///
-    /// Leaving this unset inherits rmcp's own default, a loopback-only list that
-    /// prevents DNS-rebinding attacks against locally running servers. Deployments
+    /// Leaving this unset inherits rmcp's own
+    /// [loopback-only default][rmcp::transport::streamable_http_server::tower::StreamableHttpServerConfig::allowed_hosts],
+    /// which prevents DNS-rebinding attacks against locally running servers. Deployments
     /// reachable under any other hostname must set their own list, otherwise every
     /// request is rejected with `403 Forbidden`. An empty list disables the check,
     /// accepting requests carrying any `Host` header: it does not fall back to the
