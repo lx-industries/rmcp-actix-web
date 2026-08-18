@@ -41,7 +41,7 @@ RUN arch="$(dpkg --print-architecture)" \
 
 # -- glab CLI ------------------------------------------------------------------
 # renovate: datasource=gitlab-releases depName=gitlab-org/cli registryUrl=https://gitlab.com
-ARG GLAB_VERSION="1.113.0"
+ARG GLAB_VERSION="1.114.0"
 RUN curl -fsSL "https://gitlab.com/gitlab-org/cli/-/releases/v${GLAB_VERSION}/downloads/glab_${GLAB_VERSION}_linux_amd64.deb" -o /tmp/glab.deb \
     && dpkg -i /tmp/glab.deb \
     && rm /tmp/glab.deb \
