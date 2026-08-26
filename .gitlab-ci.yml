@@ -25,7 +25,7 @@ variables:
       - "rust-x86_64-unknown-linux-gnu"
     value: "false"
   # renovate: datasource=node-version depName=node versioning=node
-  NODE_VERSION: "24.19.0"
+  NODE_VERSION: "24.20.0"
 
 # Workflow rules for automatic pipeline cancellation
 workflow:
@@ -56,7 +56,7 @@ stages:
 
 # Commit lint job - check commit message format
 commitlint:
-  image: node:24.18.1@sha256:19cd848a0e073d34bd8cd5545a1b6b4d28489b3e3b607366621ced442bd5f6b4
+  image: node:24.19.0@sha256:4196d66a565c6f195728d9952f161f4adfe2ad753052a08b7ec7f1c5a6bda42b
   stage: lint
   rules:
     - if: '$CI_PIPELINE_SOURCE == "push"'
