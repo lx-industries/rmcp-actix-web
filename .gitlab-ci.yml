@@ -79,5 +79,11 @@ commitlint:
           'header-max-length': [2, 'always', 150],
         },
       }" > ./commitlint.config.js
-      commitlint --from=$(git merge-base origin/main HEAD) --to=$CI_COMMIT_SHA
+      MERGE_BASE=$(git merge-base origin/main HEAD)
+      if [ "$MERGE_BASE" = "$CI_COMMIT_SHA" ]; then
+        # Degenerate range (e.g. push to main): lint the single HEAD commit.
+        commitlint --last
+      else
+        commitlint --from=$MERGE_BASE --to=$CI_COMMIT_SHA
+      fi
   interruptible: true
