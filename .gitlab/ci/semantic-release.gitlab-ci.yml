@@ -12,8 +12,10 @@
     SEMANTIC_RELEASE_GITLAB_VERSION: "13.3.3"
     # renovate: datasource=npm depName=@semantic-release/exec versioning=npm
     SEMANTIC_RELEASE_EXEC_VERSION: "7.1.0"
+    # Held below 10: preset 10.x needs conventional-changelog-writer@9, which only
+    # @semantic-release/release-notes-generator@15 (prerelease) declares. See #62.
     # renovate: datasource=npm depName=conventional-changelog-conventionalcommits versioning=npm
-    CONVENTIONAL_CHANGELOG_CONVENTIONALCOMMITS_VERSION: "10.4.0"
+    CONVENTIONAL_CHANGELOG_CONVENTIONALCOMMITS_VERSION: "9.3.1"
     # renovate: datasource=github-releases depName=semantic-release-cargo/semantic-release-cargo extractVersionTemplate="^v(?<version>.*)$"
     SEMANTIC_RELEASE_CARGO_VERSION: "2.4.84"
   before_script:
