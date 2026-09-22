@@ -1,3 +1,97 @@
+## [0.13.0](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.12.16...v0.13.0) (2026-09-22)
+
+### ⚠ BREAKING CHANGES
+
+* **transport:** transport::StreamableHttpService now delegates to rmcp. The
+hand-written transport requires the legacy-transport feature and a new module
+path. Handlers reading values written by the on_request hook must call
+transport::on_request_extensions rather than indexing context.extensions.
+Requests whose Host header is not a loopback authority are rejected with 403
+unless allowed_hosts is configured, and requests carrying no Host header at all
+are rejected with 400. Session-handling status codes now follow rmcp. The unused
+StreamableHttpServerConfig is removed.
+* **deps:** rmcp-actix-web now requires rmcp 3.x. Downstream users must
+upgrade their own rmcp dependency to 3.x, since this crate re-exports rmcp
+types and its public API is expressed in terms of them.
+
+### Features
+
+* **transport:** delegate streamable HTTP to rmcp's StreamableHttpService ([4142f19](https://gitlab.com/lx-industries/rmcp-actix-web/commit/4142f191835630c92577c7c03df57a14bd88ff10))
+* **transport:** expose rmcp's remaining StreamableHttpServerConfig knobs ([234e49e](https://gitlab.com/lx-industries/rmcp-actix-web/commit/234e49ed6569c20737ece43a20926dd1523f589f))
+* **transport:** re-export the third-party types the builder's API names ([281484d](https://gitlab.com/lx-industries/rmcp-actix-web/commit/281484db8155f838c7ca4476fe26a0dc120701b6))
+
+### Bug Fixes
+
+* **ci:** capture registryUrl in Renovate customManagers, bump glab to 1.110.0 ([763bb0d](https://gitlab.com/lx-industries/rmcp-actix-web/commit/763bb0d508e67e80f636bcea54e722f53a1f6d93))
+* **ci:** hold conventional-changelog preset at 9.3.1 ([0bb3823](https://gitlab.com/lx-industries/rmcp-actix-web/commit/0bb382303fc93ce79c55e04f94b536e8caf1a889))
+* **transport:** inherit rmcp's defaults for config knobs left unset ([bfb5b81](https://gitlab.com/lx-industries/rmcp-actix-web/commit/bfb5b8124d43d618ecc1fd530018109055fa990d))
+* **transport:** route requests to a root-mounted scope ([537749e](https://gitlab.com/lx-industries/rmcp-actix-web/commit/537749e7287eb6d675cc92397973d756e502c255))
+
+### Miscellaneous Chores
+
+* **deps:** lock file maintenance ([af89b41](https://gitlab.com/lx-industries/rmcp-actix-web/commit/af89b419c81cd0e29c5e625e4b26e2cd4966e577))
+* **deps:** migrate to rmcp 3.x ([d7d464d](https://gitlab.com/lx-industries/rmcp-actix-web/commit/d7d464d84ab49df522042f6c45a42a8195195ff7))
+* **deps:** update commitlint monorepo to v21.2.0 ([1232d15](https://gitlab.com/lx-industries/rmcp-actix-web/commit/1232d15fdbb853667ca015bc3e00170604289f0d))
+* **deps:** update commitlint monorepo to v21.2.2 ([89b48fd](https://gitlab.com/lx-industries/rmcp-actix-web/commit/89b48fdc83d04d1597fe8578c6a0a50e88bf4874))
+* **deps:** update commitlint monorepo to v21.2.3 ([223000a](https://gitlab.com/lx-industries/rmcp-actix-web/commit/223000ab977f45015c789f5070071039ccee73ce))
+* **deps:** update dependency @commitlint/cli to v21.2.1 ([00ac93c](https://gitlab.com/lx-industries/rmcp-actix-web/commit/00ac93c6633983feb1ea4f8400ff2ecf7bed90a3))
+* **deps:** update dependency gitlab-org/cli to v1.111.0 ([717a024](https://gitlab.com/lx-industries/rmcp-actix-web/commit/717a02417ba782acf3495b4ad22a67f10ee505cd))
+* **deps:** update dependency gitlab-org/cli to v1.112.0 ([3beb02b](https://gitlab.com/lx-industries/rmcp-actix-web/commit/3beb02b3b168fba4ce0f30a52e806e7943b5bb27))
+* **deps:** update dependency gitlab-org/cli to v1.113.0 ([6bc22e9](https://gitlab.com/lx-industries/rmcp-actix-web/commit/6bc22e9c041baca35947af099356b4df5c408a34))
+* **deps:** update dependency gitlab-org/cli to v1.114.0 ([2887834](https://gitlab.com/lx-industries/rmcp-actix-web/commit/288783465056212dcecd8f437b1de96f6ec7f9a3))
+* **deps:** update dependency gitlab-org/cli to v1.115.0 ([c2419e6](https://gitlab.com/lx-industries/rmcp-actix-web/commit/c2419e69b50e60b8d57ccfd806e8dd3b447a9516))
+* **deps:** update dependency gitlab-org/cli to v1.116.0 ([b4d6ad1](https://gitlab.com/lx-industries/rmcp-actix-web/commit/b4d6ad1a90f78eef40985753b2da74dcfd951250))
+* **deps:** update dependency gitlab-org/cli to v1.117.0 ([036f920](https://gitlab.com/lx-industries/rmcp-actix-web/commit/036f920fefe83c5286b5d575fd10393c58c5b8dc))
+* **deps:** update dependency gitlab-org/cli to v1.118.0 ([ab766b8](https://gitlab.com/lx-industries/rmcp-actix-web/commit/ab766b8cecb87d1ef1470de8f889ef8d861b4c48))
+* **deps:** update docker docker tag to v29.6.2 ([c4879ce](https://gitlab.com/lx-industries/rmcp-actix-web/commit/c4879cea80a4a810ef4695fb3d7ca92ec3b09c26))
+* **deps:** update docker docker tag to v29.7.0 ([ad4a7d4](https://gitlab.com/lx-industries/rmcp-actix-web/commit/ad4a7d43f5844c910f40abd42a8602314a5996e6))
+* **deps:** update docker docker tag to v29.7.1 ([d8d8732](https://gitlab.com/lx-industries/rmcp-actix-web/commit/d8d8732ad0b127ce37b04df080e8f162c7eae870))
+* **deps:** update docker docker tag to v29.7.2 ([58b1b89](https://gitlab.com/lx-industries/rmcp-actix-web/commit/58b1b89cdad1299699b356a3da0a474f634a004f))
+* **deps:** update docker docker tag to v29.8.0 ([a7a372a](https://gitlab.com/lx-industries/rmcp-actix-web/commit/a7a372ada8a820f41ce932eabbf4b735994b3368))
+* **deps:** update docker docker tag to v29.8.1 ([be3b962](https://gitlab.com/lx-industries/rmcp-actix-web/commit/be3b962fd6051e5c0b458b39eeb5bd99b7e7100a))
+* **deps:** update docker:29.7.1-dind docker digest to e8faad5 ([3592c6e](https://gitlab.com/lx-industries/rmcp-actix-web/commit/3592c6e06c06977ddd9a514b58a12a81ba6004bf))
+* **deps:** update docker:29.7.2-dind docker digest to 360545c ([7d6d8d0](https://gitlab.com/lx-industries/rmcp-actix-web/commit/7d6d8d02bc6832c8a381b29dd7c0955817d54468))
+* **deps:** update docker:29.7.2-dind docker digest to 3ef33f2 ([cf663ed](https://gitlab.com/lx-industries/rmcp-actix-web/commit/cf663ed8c46e4058de9cc4b0020beeab5933f462))
+* **deps:** update docker:29.8.0-dind docker digest to 5efed98 ([e22d1c6](https://gitlab.com/lx-industries/rmcp-actix-web/commit/e22d1c63fc8f60a94735279cd31e1e9eccca6e92))
+* **deps:** update docker:29.8.1-dind docker digest to 3f3c01a ([e9009ce](https://gitlab.com/lx-industries/rmcp-actix-web/commit/e9009ceb5efdd3bdc10e478b0cb8a7a92b4f1b12))
+* **deps:** update node.js ([3532e6e](https://gitlab.com/lx-industries/rmcp-actix-web/commit/3532e6e0a30eb3e0628e100a82c4ea4fa3181beb))
+* **deps:** update node.js ([6eb0a4b](https://gitlab.com/lx-industries/rmcp-actix-web/commit/6eb0a4ba8c9362b994f448baef0aac156baae261))
+* **deps:** update node.js to v24.18.1 ([4914ec9](https://gitlab.com/lx-industries/rmcp-actix-web/commit/4914ec9eeb5835f994bbb2ce3b81eaa27a735640))
+* **deps:** update node.js to v24.19.0 ([4d6b725](https://gitlab.com/lx-industries/rmcp-actix-web/commit/4d6b725f6b1923badd5ccdf1cb5dcff89b0aa923))
+* **deps:** update node.js to v24.20.0 ([3e5187d](https://gitlab.com/lx-industries/rmcp-actix-web/commit/3e5187d6f04fa92adbf8f57c17bb140d5c25f380))
+* **deps:** update node.js to v24.21.0 ([15cfe83](https://gitlab.com/lx-industries/rmcp-actix-web/commit/15cfe839b430d19c88fdbf72f7457a06ee16f73f))
+* **deps:** update registry.gitlab.com/lx-industries/rmcp-actix-web/images/rust docker tag to v1.96.1 ([cf6b3f6](https://gitlab.com/lx-industries/rmcp-actix-web/commit/cf6b3f6dd84951b44e311f45999758f93c9a12a0))
+* **deps:** update registry.gitlab.com/lx-industries/rmcp-actix-web/images/rust docker tag to v1.97.1 ([29e1da2](https://gitlab.com/lx-industries/rmcp-actix-web/commit/29e1da2800418c6dc767d0401275ee8ce36c04ec))
+* **deps:** update registry.gitlab.com/lx-industries/rmcp-actix-web/images/rust:1.96.0-x86_64-unknown-linux-gnu docker digest to 5b1cda3 ([1249ab1](https://gitlab.com/lx-industries/rmcp-actix-web/commit/1249ab1880e46150c6001346c328f25d3d14d3cb))
+* **deps:** update rust crate anyhow to v1.0.104 ([7228ddd](https://gitlab.com/lx-industries/rmcp-actix-web/commit/7228ddd10e9de607dac1f73f628761a4128780cc))
+* **deps:** update rust crate async-trait to v0.1.92 ([edacac1](https://gitlab.com/lx-industries/rmcp-actix-web/commit/edacac19ed95347edb1bd77954f340196d162d6e))
+* **deps:** update rust crate bon to v3.10.1 ([ca7ce7e](https://gitlab.com/lx-industries/rmcp-actix-web/commit/ca7ce7e3febcc6a986364ff4e1a333e71e313ebd))
+* **deps:** update rust crate bytes to v1.12.1 ([f0aaec5](https://gitlab.com/lx-industries/rmcp-actix-web/commit/f0aaec5990d09ea83301ab9ffc27edec50bd4279))
+* **deps:** update rust crate futures to v0.3.33 ([0add169](https://gitlab.com/lx-industries/rmcp-actix-web/commit/0add169c9b49622db9939b6b81e29dd4cd6cb482))
+* **deps:** update rust crate futures to v0.3.34 ([051e291](https://gitlab.com/lx-industries/rmcp-actix-web/commit/051e291bcc3d1158fa5add942deb8204a716e41a))
+* **deps:** update rust crate http to v1.5.0 ([4ae4e73](https://gitlab.com/lx-industries/rmcp-actix-web/commit/4ae4e7344710ac418875be7a4d90693aad54b354))
+* **deps:** update rust crate http-body to v1.1.0 ([e2bad60](https://gitlab.com/lx-industries/rmcp-actix-web/commit/e2bad6026ab32280eb975953cfd51bc63296607a))
+* **deps:** update rust crate http-body-util to v0.1.4 ([81b8016](https://gitlab.com/lx-industries/rmcp-actix-web/commit/81b8016d6d3a0403aa9bcc8cdaef32eebf639d08))
+* **deps:** update rust crate http-body-util to v0.1.5 ([2eccbb6](https://gitlab.com/lx-industries/rmcp-actix-web/commit/2eccbb64b8d9944649d52e4a07dcc460011c7afe))
+* **deps:** update rust crate reqwest to v0.13.5 ([39055d8](https://gitlab.com/lx-industries/rmcp-actix-web/commit/39055d8ee1622a8d66d46177db5d5538dec62f23))
+* **deps:** update rust crate rmcp to v3.0.1 ([95b71c2](https://gitlab.com/lx-industries/rmcp-actix-web/commit/95b71c2ffa203e8305f6bb588ebf8e8516a5cb8a))
+* **deps:** update rust crate rmcp to v3.1.0 ([92f0b73](https://gitlab.com/lx-industries/rmcp-actix-web/commit/92f0b735a68a3f94e06f4f3d0c62aba0eda370d2))
+* **deps:** update rust crate rmcp to v3.1.1 ([d12c01a](https://gitlab.com/lx-industries/rmcp-actix-web/commit/d12c01a4a77810b957a1b1e4ac14fd7af9caa913))
+* **deps:** update rust crate rmcp to v3.1.2 ([846b733](https://gitlab.com/lx-industries/rmcp-actix-web/commit/846b733418f623500358f7e69addee7a40e538bb))
+* **deps:** update rust crate rmcp to v3.1.3 ([f3744ad](https://gitlab.com/lx-industries/rmcp-actix-web/commit/f3744adba5411496af472982760e2949a7ea4bab))
+* **deps:** update rust crate rmcp to v3.1.4 ([bbd3a0f](https://gitlab.com/lx-industries/rmcp-actix-web/commit/bbd3a0ffb32f45b75f63e055a503ee6d6f7e27a6))
+* **deps:** update rust crate serde to v1.0.229 ([c8b2f63](https://gitlab.com/lx-industries/rmcp-actix-web/commit/c8b2f6305870d2b81f337a77364f444b1cf67666))
+* **deps:** update rust crate serde_json to v1.0.151 ([8917323](https://gitlab.com/lx-industries/rmcp-actix-web/commit/891732345e0d47cee01f30f30f1e067a9b249b74))
+* **deps:** update rust crate tokio to v1.53.1 ([14cb6fa](https://gitlab.com/lx-industries/rmcp-actix-web/commit/14cb6fa757f1684471fdea2c52d139fd0d488d3f))
+* **deps:** update rust crate tokio-stream to v0.1.19 ([64f582d](https://gitlab.com/lx-industries/rmcp-actix-web/commit/64f582da7d9f938c80bd2818a7b4cb96a5e98773))
+* **deps:** update rust docker tag to v1.96.1 ([fb4dfab](https://gitlab.com/lx-industries/rmcp-actix-web/commit/fb4dfab6071b88d308af324e06eb60c965b32f30))
+* **deps:** update rust docker tag to v1.97.1 ([b4ed505](https://gitlab.com/lx-industries/rmcp-actix-web/commit/b4ed50514dc0efb4db414f279aef914b50cf1bd8))
+* **deps:** update rust docker tag to v1.98.0 ([04b0d38](https://gitlab.com/lx-industries/rmcp-actix-web/commit/04b0d38483a07a93968de509b8b76492b6f56d4f))
+* **deps:** update rust:1.96.0 docker digest to 58fe975 ([09e914e](https://gitlab.com/lx-industries/rmcp-actix-web/commit/09e914e470fe6feb73e508ee6b9742e03ff6cd81))
+* **deps:** update rust:1.97.1 docker digest to b1b3c9c ([42b8cc7](https://gitlab.com/lx-industries/rmcp-actix-web/commit/42b8cc78597110aa9f5a7857bf21b219e6cf6a44))
+* **deps:** update rust:1.98.0 docker digest to 620dbcd ([ee65721](https://gitlab.com/lx-industries/rmcp-actix-web/commit/ee657215dab938d16bf00625348e611eb96c25db))
+* **deps:** update semantic-release ([133b388](https://gitlab.com/lx-industries/rmcp-actix-web/commit/133b388f8dbc669240385b49b5a7d07d00c47dcb))
+
 ## [0.12.16](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.12.15...v0.12.16) (2026-06-29)
 
 ### Miscellaneous Chores
