@@ -1,3 +1,9 @@
+## [0.13.1](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.13.0...v0.13.1) (2026-09-28)
+
+### Miscellaneous Chores
+
+* **deps:** update dependency gitlab-org/cli to v1.119.0 ([0e77538](https://gitlab.com/lx-industries/rmcp-actix-web/commit/0e77538e62f1adfd64771776adbfefaa65e6626f))
+
 ## [0.13.0](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.12.16...v0.13.0) (2026-09-22)
 
 ### ⚠ BREAKING CHANGES
