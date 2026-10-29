@@ -33,7 +33,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # -- gosu (privilege drop for firewalled mode) ---------------------------------
 # renovate: datasource=github-releases depName=tianon/gosu
-ARG GOSU_VERSION="1.19"
+ARG GOSU_VERSION="1.20"
 RUN arch="$(dpkg --print-architecture)" \
     && curl -fsSL "https://github.com/tianon/gosu/releases/download/${GOSU_VERSION}/gosu-${arch}" -o /usr/local/bin/gosu \
     && chmod +x /usr/local/bin/gosu \
