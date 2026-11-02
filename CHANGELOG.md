@@ -1,3 +1,22 @@
+## [0.13.2](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.13.1...v0.13.2) (2026-11-02)
+
+### Miscellaneous Chores
+
+* **deps:** update commitlint monorepo to v21.2.4 ([6583480](https://gitlab.com/lx-industries/rmcp-actix-web/commit/6583480f07e520ab0f37ee1551c479e7d37f7d1c))
+* **deps:** update dependency gitlab-org/cli to v1.125.0 ([bb14c39](https://gitlab.com/lx-industries/rmcp-actix-web/commit/bb14c39e062f46325703dacb0893debc356f9a7b))
+* **deps:** update dependency gitlab-org/cli to v1.126.0 ([fa7257b](https://gitlab.com/lx-industries/rmcp-actix-web/commit/fa7257bfd7c07f863d3eb6f3834dd6f1c1dbd3cb))
+* **deps:** update dependency tianon/gosu to v1.20 ([b9a7a99](https://gitlab.com/lx-industries/rmcp-actix-web/commit/b9a7a99f605c58d88d6a602fc8202723027adf57))
+* **deps:** update docker docker tag to v29.9.2 ([8d65c77](https://gitlab.com/lx-industries/rmcp-actix-web/commit/8d65c77877fe7b65971cdbd82b808cbf49e8e1ef))
+* **deps:** update node.js to v24.22.2 ([0a74fd4](https://gitlab.com/lx-industries/rmcp-actix-web/commit/0a74fd49655c9c5b00a9b7a9f0e45038025014c9))
+* **deps:** update registry.gitlab.com/lx-industries/rmcp-actix-web/images/rust docker tag to v1.99.1 ([d08635b](https://gitlab.com/lx-industries/rmcp-actix-web/commit/d08635b3d5479f83f476e117890699efb0e27303))
+* **deps:** update rust crate actix-web to v4.18.1 ([8a3b890](https://gitlab.com/lx-industries/rmcp-actix-web/commit/8a3b8903407c8e66064b97bebcf095c9470306f4))
+* **deps:** update rust crate bon to v3.10.3 ([b375ea6](https://gitlab.com/lx-industries/rmcp-actix-web/commit/b375ea6843cf144352c37d82485e15069e761c48))
+* **deps:** update rust crate insta to v1.49.0 ([26efd8d](https://gitlab.com/lx-industries/rmcp-actix-web/commit/26efd8dab80a63e12093d7baa99d1d0a50505f9c))
+* **deps:** update rust crate serde_json to v1.0.154 ([68ca751](https://gitlab.com/lx-industries/rmcp-actix-web/commit/68ca75177c731c70015776649e86b9c58a9b389b))
+* **deps:** update rust crate tokio to v1.54.1 ([bd44d45](https://gitlab.com/lx-industries/rmcp-actix-web/commit/bd44d45e99ede40fc6a8d4d0a4f123f8e44f3b34))
+* **deps:** update rust crate tokio-util to v0.7.20 ([b63efa5](https://gitlab.com/lx-industries/rmcp-actix-web/commit/b63efa5832fe795a6eeeb598a3094effb6886a1e))
+* **deps:** update rust docker tag to v1.99.1 ([a51cbdb](https://gitlab.com/lx-industries/rmcp-actix-web/commit/a51cbdb10b26c1ba553e7226d5d6a506a5be6940))
+
 ## [0.13.1](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.13.0...v0.13.1) (2026-09-28)
 
 ### Miscellaneous Chores
