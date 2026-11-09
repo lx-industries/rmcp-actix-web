@@ -1,3 +1,16 @@
+## [0.13.3](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.13.2...v0.13.3) (2026-11-09)
+
+### Miscellaneous Chores
+
+* **deps:** update dependency gitlab-org/cli to v1.127.0 ([91ea1cd](https://gitlab.com/lx-industries/rmcp-actix-web/commit/91ea1cdbed1229d4771a8bf3cf22e39db821ab17))
+* **deps:** update dependency gitlab-org/cli to v1.128.0 ([47812e4](https://gitlab.com/lx-industries/rmcp-actix-web/commit/47812e4ee1fc474b52c73308f051cfe667d56660))
+* **deps:** update docker docker tag to v29.9.3 ([46687df](https://gitlab.com/lx-industries/rmcp-actix-web/commit/46687df6ad92db02d001182e823da1230bd7dae6))
+* **deps:** update docker:29.9.3-dind docker digest to 08a9801 ([1cd3571](https://gitlab.com/lx-industries/rmcp-actix-web/commit/1cd3571ffc8e0268286da647138c41edb670deaf))
+* **deps:** update docker:29.9.3-dind docker digest to 4495bd0 ([2ba94f9](https://gitlab.com/lx-industries/rmcp-actix-web/commit/2ba94f9a21ab844a79530ef9e9cc23e230b896dd))
+* **deps:** update node.js to 8fa9626 ([68f2ff3](https://gitlab.com/lx-industries/rmcp-actix-web/commit/68f2ff3a371a1843ead53cf65643e35a56fe7e89))
+* **deps:** update node.js to 994ed66 ([6e9d613](https://gitlab.com/lx-industries/rmcp-actix-web/commit/6e9d6139d16b1062f722b4ebcb5bc15b9e98ca2f))
+* **deps:** update rust crate actix-web to v4.18.2 ([aa0e8b4](https://gitlab.com/lx-industries/rmcp-actix-web/commit/aa0e8b494d99e46e0baaf822fb7b21c38ee16105))
+
 ## [0.13.2](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.13.1...v0.13.2) (2026-11-02)
 
 ### Miscellaneous Chores
