@@ -6,7 +6,7 @@ use rmcp::{
         router::tool::ToolRouter,
         wrapper::{Json, Parameters},
     },
-    model::{ServerCapabilities, ServerInfo},
+    model::{ServerCapabilities, ServerConfig},
     schemars, tool, tool_handler, tool_router,
 };
 
@@ -83,8 +83,8 @@ impl<DS: DataService> GenericService<DS> {
 
 #[tool_handler]
 impl<DS: DataService> ServerHandler for GenericService<DS> {
-    fn get_info(&self) -> ServerInfo {
-        ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
+    fn get_info(&self) -> ServerConfig {
+        ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
             .with_instructions("generic data service")
     }
 }

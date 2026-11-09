@@ -564,7 +564,7 @@ mod tests {
     use super::*;
     use rmcp::{
         ServerHandler,
-        model::ServerInfo,
+        model::ServerConfig,
         transport::streamable_http_server::session::{
             SessionState, SessionStoreError, local::LocalSessionManager,
         },
@@ -574,8 +574,8 @@ mod tests {
     struct TestService;
 
     impl ServerHandler for TestService {
-        fn get_info(&self) -> ServerInfo {
-            ServerInfo::default()
+        fn get_info(&self) -> ServerConfig {
+            ServerConfig::default()
         }
     }
 

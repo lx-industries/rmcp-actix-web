@@ -209,8 +209,8 @@ impl UserAwareService {
 
 #[tool_handler]
 impl ServerHandler for UserAwareService {
-    fn get_info(&self) -> ServerInfo {
-        ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
+    fn get_info(&self) -> ServerConfig {
+        ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
             .with_instructions("User-aware service demonstrating on_request hook")
     }
 }

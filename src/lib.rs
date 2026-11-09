@@ -36,11 +36,11 @@
 //! use actix_web::{App, HttpServer};
 //! use std::{sync::Arc, time::Duration};
 //!
-//! # use rmcp::{ServerHandler, model::ServerInfo};
+//! # use rmcp::{ServerHandler, model::ServerConfig};
 //! # #[derive(Clone)]
 //! # struct MyMcpService;
 //! # impl ServerHandler for MyMcpService {
-//! #     fn get_info(&self) -> ServerInfo { ServerInfo::default() }
+//! #     fn get_info(&self) -> ServerConfig { ServerConfig::default() }
 //! # }
 //! # impl MyMcpService {
 //! #     fn new() -> Self { Self }
@@ -87,11 +87,11 @@
 //! use actix_web::{App, web};
 //! use std::{sync::Arc, time::Duration};
 //!
-//! # use rmcp::{ServerHandler, model::ServerInfo};
+//! # use rmcp::{ServerHandler, model::ServerConfig};
 //! # #[derive(Clone)]
 //! # struct MyService;
 //! # impl ServerHandler for MyService {
-//! #     fn get_info(&self) -> ServerInfo { ServerInfo::default() }
+//! #     fn get_info(&self) -> ServerConfig { ServerConfig::default() }
 //! # }
 //! # impl MyService { fn new() -> Self { Self } }
 //! # use actix_web::HttpServer;

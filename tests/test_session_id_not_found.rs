@@ -5,9 +5,9 @@
 //! or empty session id answer `404 Not Found`, letting the client recover by
 //! starting a new session via an `InitializeRequest` without a session id.
 //! `DELETE` is idempotent and answers `202 Accepted` whether or not the session
-//! exists. A missing session id on `GET` or `DELETE` answers `400 Bad Request`,
-//! and a `POST` that is neither an `initialize` request nor bound to a session
-//! answers `422 Unprocessable Entity`. In stateless mode the header is ignored.
+//! exists. A missing session id answers `400 Bad Request` on `GET`, on `DELETE`,
+//! and on a `POST` that is not an `initialize` request. In stateless mode the
+//! header is ignored.
 
 mod common;
 
@@ -21,7 +21,6 @@ use std::time::Duration;
 
 const MISSING_SESSION_ID_BODY: &str = "Bad Request: Session ID is required";
 const SESSION_NOT_FOUND_BODY: &str = "Not Found: Session not found";
-const NOT_AN_INITIALIZE_REQUEST_BODY: &str = "Unexpected message, expect initialize request";
 
 struct TestServer {
     url: String,
@@ -167,10 +166,10 @@ async fn delete_with_missing_session_id_returns_400() {
     assert_eq!(body, MISSING_SESSION_ID_BODY);
 }
 
-/// Without a session id the only message a stateful server can place is an
-/// `initialize` request, so anything else is well-formed but unprocessable.
+/// Without a session id the only message a stateful server accepts is an
+/// `initialize` request; anything else lacks the session it needs.
 #[actix_web::test]
-async fn post_without_session_id_and_non_initialize_returns_422() {
+async fn post_without_session_id_and_non_initialize_returns_400() {
     let server = TestServer::spawn(true).await;
 
     let tools_list_request = json!({
@@ -189,9 +188,9 @@ async fn post_without_session_id_and_non_initialize_returns_422() {
         .await
         .expect("Failed to send request");
 
-    assert_eq!(response.status(), reqwest::StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(response.status(), reqwest::StatusCode::BAD_REQUEST);
     let body = response.text().await.expect("Failed to read response body");
-    assert_eq!(body, NOT_AN_INITIALIZE_REQUEST_BODY);
+    assert_eq!(body, MISSING_SESSION_ID_BODY);
 }
 
 /// An empty header value is not a missing header: it is a session id that no

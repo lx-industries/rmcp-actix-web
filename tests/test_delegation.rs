@@ -52,34 +52,12 @@ async fn first_json_rpc_payload(response: reqwest::Response) -> Value {
         .expect("an SSE data event carrying a JSON-RPC payload")
 }
 
+/// A `2026-07-28` peer has no `initialize` handshake (SEP-2567): it carries its
+/// protocol version and capabilities on every request, so the test sends none.
 #[actix_web::test]
 async fn call_tool_result_carries_result_type_for_2026_07_28_peer() {
     let url = start_server(false).await;
     let client = reqwest::Client::new();
-
-    let initialize = client
-        .post(&url)
-        .header("Accept", "application/json, text/event-stream")
-        .header("Content-Type", "application/json")
-        .json(&json!({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "initialize",
-            "params": {
-                "protocolVersion": "2026-07-28",
-                "capabilities": {},
-                "clientInfo": {"name": "test", "version": "1.0"}
-            }
-        }))
-        .send()
-        .await
-        .expect("initialize");
-    let initialize = first_json_rpc_payload(initialize).await;
-    assert_eq!(
-        initialize.pointer("/result/protocolVersion"),
-        Some(&json!("2026-07-28")),
-        "server must negotiate 2026-07-28"
-    );
 
     let call = client
         .post(&url)
