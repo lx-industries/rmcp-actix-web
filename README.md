@@ -142,7 +142,7 @@ clients always send `Host`, but actix's in-process test harness does not. See
 | `DELETE` with an unknown session id | `404 Not Found` | `202 Accepted`, empty body | `DELETE` is idempotent: deleting a session that does not exist reaches the same end state as deleting one that does. |
 | `DELETE` with an empty `Mcp-Session-Id` | `400 Bad Request` | `202 Accepted`, empty body | Same idempotence, applied to an empty id: it is an id no session matches, not an absent one. |
 | `POST` or `GET` with an empty `Mcp-Session-Id` | `400 Bad Request` | `404 Not Found`, body `Not Found: Session not found` | An empty header value is not a missing header. It is a session id that no session matches, so the client can recover by re-initializing. |
-| `POST` with no session id that is not an `initialize` request | `400 Bad Request` | `422 Unprocessable Entity`, body `Unexpected message, expect initialize request` | The request is well-formed; it is the message that cannot be processed without a session. |
+| `POST` with no session id that is not an `initialize` request | `400 Bad Request` | `400 Bad Request`, body `Bad Request: Session ID is required` | The status is unchanged; the body is rmcp's wording. A server that requires a session answers a request without one, other than `initialize`, with `400 Bad Request`, as the MCP Session Management section recommends. |
 
 Two statuses are unchanged, but their bodies are rmcp's wording now: `POST` or `GET`
 with an unknown non-empty session id still answers `404 Not Found`, with the body
