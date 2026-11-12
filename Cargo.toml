@@ -25,7 +25,7 @@ legacy-transport = ["transport-streamable-http"]
 authorization-token-passthrough = []
 
 [dependencies]
-rmcp = { version = "3.9.0", features = ["base64", "server"] }
+rmcp = { version = "3.10.0", features = ["base64", "server"] }
 actix-web = { version = "4", default-features = false }
 async-stream = "0.3"
 bon = "3.7.1"
@@ -49,7 +49,7 @@ tokio-util = { version = "0.7.19", optional = true }
 
 [dev-dependencies]
 actix-web = "4"
-rmcp = { version = "3.9.0", default-features = false, features = [
+rmcp = { version = "3.10.0", default-features = false, features = [
     "base64",
     "macros",
     "server",
