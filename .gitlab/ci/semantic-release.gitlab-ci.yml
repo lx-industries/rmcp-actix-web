@@ -9,7 +9,7 @@
     # renovate: datasource=npm depName=@semantic-release/git versioning=npm
     SEMANTIC_RELEASE_GIT_VERSION: "11.0.1"
     # renovate: datasource=npm depName=@semantic-release/gitlab versioning=npm
-    SEMANTIC_RELEASE_GITLAB_VERSION: "13.3.3"
+    SEMANTIC_RELEASE_GITLAB_VERSION: "13.3.4"
     # renovate: datasource=npm depName=@semantic-release/exec versioning=npm
     SEMANTIC_RELEASE_EXEC_VERSION: "7.1.0"
     # Held below 10: preset 10.x needs conventional-changelog-writer@9, which only
