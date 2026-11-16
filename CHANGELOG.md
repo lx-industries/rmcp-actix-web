@@ -1,3 +1,19 @@
+## [0.13.4](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.13.3...v0.13.4) (2026-11-16)
+
+### Bug Fixes
+
+* **deps:** update rmcp to 3.9.0 ([303b300](https://gitlab.com/lx-industries/rmcp-actix-web/commit/303b3003bea6551e4c03289e32286436bf35de0a)), closes [#63](https://gitlab.com/lx-industries/rmcp-actix-web/issues/63)
+
+### Miscellaneous Chores
+
+* **deps:** update dependency @semantic-release/gitlab to v13.3.4 ([0d8ed28](https://gitlab.com/lx-industries/rmcp-actix-web/commit/0d8ed281d4807f90605d7f5cb3f01c206a6919aa))
+* **deps:** update dependency gitlab-org/cli to v1.130.0 ([ef76f00](https://gitlab.com/lx-industries/rmcp-actix-web/commit/ef76f0018199d13db9cbcaf617af0ccb9076b2d5))
+* **deps:** update docker:29.9.3-dind docker digest to 7bf70dc ([2dd3fb1](https://gitlab.com/lx-industries/rmcp-actix-web/commit/2dd3fb16dffbf4937a354a9a4167600f075d5531))
+* **deps:** update node.js to 9d26675 ([a334c39](https://gitlab.com/lx-industries/rmcp-actix-web/commit/a334c39531097e5e2c0689bb30927c4a04ed1b21))
+* **deps:** update node.js to v24.22.3 ([2d335dc](https://gitlab.com/lx-industries/rmcp-actix-web/commit/2d335dc90d72c487b95d3bdc9f00b4199c12fa11))
+* **deps:** update rust crate actix-web to v4.19.0 ([54d3a53](https://gitlab.com/lx-industries/rmcp-actix-web/commit/54d3a53556c0bcba5357d7445d0486814fd1bcf7))
+* **deps:** update rust crate rmcp to 3.10.0 ([9c571d4](https://gitlab.com/lx-industries/rmcp-actix-web/commit/9c571d47db551d69ad27f2a5b57d2cfa78e7cce8))
+
 ## [0.13.3](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.13.2...v0.13.3) (2026-11-09)
 
 ### Miscellaneous Chores
