@@ -1,3 +1,12 @@
+## [0.13.5](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.13.4...v0.13.5) (2026-11-23)
+
+### Miscellaneous Chores
+
+* **deps:** update dependency gitlab-org/cli to v1.131.0 ([e2c715b](https://gitlab.com/lx-industries/rmcp-actix-web/commit/e2c715bd137c9708b1988f5afe1e16b16b8d7d01))
+* **deps:** update docker docker tag to v29.10.0 ([ac60a2a](https://gitlab.com/lx-industries/rmcp-actix-web/commit/ac60a2a74ffdeeebfbc0f2ecd147a18f37b55da8))
+* **deps:** update rust crate actix-web to v4.20.0 ([32c9613](https://gitlab.com/lx-industries/rmcp-actix-web/commit/32c9613ec32946f3fd82278fc8825f25dded03f1))
+* **deps:** update rust crate bytes to v1.12.2 ([67c4bad](https://gitlab.com/lx-industries/rmcp-actix-web/commit/67c4bade62904de2c8a70aa78df387f8a9743cec))
+
 ## [0.13.4](https://gitlab.com/lx-industries/rmcp-actix-web/compare/v0.13.3...v0.13.4) (2026-11-16)
 
 ### Bug Fixes
